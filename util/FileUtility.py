@@ -61,7 +61,7 @@ class Handler(FileUtility):
     def sort_assets(self, source: str, dest: str, threshold=3) -> bool:
         """
         Moves all canonically-named assets in source path to the corresponding published directory in dest path.
-        Argument thold controls the automatic creation of publisher directories when multiple products exist for an unestablished publisher.
+        threshold controls automatic creation of publisher directories when multiple products exist for an unestablished publisher.
         """
         self.log.info("Begin sorting of intake directory.")
         grouped = self.group_by_publisher(source)
@@ -70,12 +70,15 @@ class Handler(FileUtility):
             if not shutil.os.path.exists(pub_dir):
                 if len(grouped[publisher]) >= threshold:
                     shutil.os.mkdir(pub_dir)
-                    self.log.debug(f"Publisher directory created: {publisher}")
+                    self.log.info(f"Publisher directory created: {publisher}")
                 else: 
                     continue
             for _asset in grouped[publisher]:
+                if shutil.os.path.exists(f"{pub_dir}/{_asset}"):
+                    shutil.move(f"{source}{_asset}", f"{source}{_asset}.duplicate")
+                    self.log.debug(f"{_asset} marked as duplicate.")
                 shutil.move(f"{source}{_asset}", pub_dir)
-                self.log.debug(f"{_asset} moved from intake to /{publisher}.")
+                self.log.debug(f"{_asset} moved from intake to {publisher}.")
         return True
 
 

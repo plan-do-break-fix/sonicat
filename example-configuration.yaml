@@ -1,0 +1,7 @@
+---
+
+root: /home/user42/sounds/ 
+data: /home/user42/sounds/.catalog
+logging: /home/user42/sounds/.catalog/logs
+covers: /home/user42/sounds/.catalog/covers
+intake: /home/user42/sounds/.sort

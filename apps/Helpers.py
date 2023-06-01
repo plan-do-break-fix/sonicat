@@ -25,7 +25,7 @@ class CheckPoint:
         self.path = f"{config.data}/checkpoints/{config.app_name}"
         self.major, self.minor = "", ""
         if not shutil.os.path.exists(checkpoint_dir):
-            shutil.os.path.mkdir(checkpoint_dir)
+            shutil.os.mkdir(checkpoint_dir)
             return None
 
     def read(self) -> Dict:

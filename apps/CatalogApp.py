@@ -92,7 +92,8 @@ class Build(AccessionApp):
                 _digest = self.inventory.digest(f"{label_path}/{archive}")
                 if self.inventory.db.update_asset_digest(asset_id, _digest):
                     self.log.info(f"Hash digest updated for asset ID {asset_id}.")
-                self.log.info(f"Processing complete for {cname}.")
+                self.log.info(f"Processing complete for {cname}. Cleaning up...")
+                shutil.os.remove(f"{label_path}/{archive}.old")
             self.log.info(f"Processing complete for label directory {label_dir}.")
         return True
 

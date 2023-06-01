@@ -40,7 +40,14 @@ class CheckPoint:
         return True
 
     def set(self, major="", minor="") -> bool:
-        if not major:
-            raise ValueError("Major checkpoint must be set.")
-        self.major, self.minor = major, minor
+        if major:
+            self.major, self.minor = major, ""
+        elif minor:
+            self.minor = minor
+        else:
+            raise ValueError("Checkpoint.set called with no arguments.")
         self.write()
+
+    def purge(self) -> bool:
+        shutil.os.remove(self.path)
+        self.major, self.minor = "", ""

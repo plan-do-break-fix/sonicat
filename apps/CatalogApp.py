@@ -1,15 +1,17 @@
 #!/usr/bin/python3
+
+from contextlib import closing
+from datetime import datetime
+import shutil
+from typing import List
+
 from yaml import load
 try:
   from yaml import CSafeLoader as SafeLoader
 except ImportError:
   from yaml import SafeLoader
 
-from contextlib import closing
-from datetime import datetime
-import shutil
-
-from apps.Helpers import Config
+from apps.Helpers import CheckPoint, Config
 from util.FileUtility import Archive, Inventory, Handler
 from util import Logs
 from util.NameUtility import Validate
@@ -41,6 +43,7 @@ class AccessionApp:
     def __init__(self, config_path: str) -> None:
         with closing(open(config_path, "r")) as _f:
             self.cfg = Config(**load(_f.read(), SafeLoader))
+        self.chkpt = CheckPoint(self.cfg)
 
 
 class Build(AccessionApp):
@@ -53,6 +56,9 @@ class Build(AccessionApp):
     def run(self) -> bool:
         labels = [_d for _d in shutil.os.listdir(self.cfg.root)
                   if not _d.startswith(".")]
+        if self.chkpt.major:
+            self.log.info(f"Major checkpoint loaded - skipping to {self.chkpt.major}...")
+            labels = self.skip_to(labels, self.chkpt.major)
         self.log.info(f"Processing {len(labels)} label directories.")
         for label_dir in labels:
             self.log.info(f"Begin processing directory {label_dir}.")
@@ -62,6 +68,9 @@ class Build(AccessionApp):
                               if _r.endswith(".rar")
                               and Validate.name_is_canonical(_r.split(".")[0])
                               ]
+            if self.chkpt.minor:
+                self.log.info(f"Minor checkpoint loaded - skipping to {self.chkpt.minor}...")
+                asset_archives = self.skip_to(asset_archives, self.chkpt.minor)
             self.log.info(f"Processing {len(asset_archives)} asset archives.")
             for archive in asset_archives:
                 cname = archive.split(".")[0]
@@ -81,9 +90,18 @@ class Build(AccessionApp):
                 if self.inventory.db.update_asset_digest(asset_id, _digest):
                     self.log.debug(f"Hash digest updated for asset ID {asset_id}.")
                 self.log.info(f"Processing complete for {cname}. Cleaning up...")
+                self.chkpt.set(minor=archive)
                 shutil.os.remove(f"{label_path}/{archive}.old")
             self.log.info(f"Processing complete for label directory {label_dir}.")
+            self.chkpt.set(major=label_dir)
+        self.chkpt.purge()
         return True
+    
+    def skip_to(self, original: List, target) -> List:
+        for _i, _o in enumerate(original):
+            if _o == target:
+                return original[_i+1:]
+
 
 
 class Update(AccessionApp):

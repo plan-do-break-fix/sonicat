@@ -4,12 +4,12 @@
 # JDSwan 2023.05.19
 
 from contextlib import closing
-from datetime import datetime
 from hashlib import blake2b
+from logging import Logger
 import shutil
 from typing import Dict, List
 
-from apps.CatalogApp import Config
+from apps.Helpers import Config
 from util import Logs
 from util.NameUtility import Transform, Validate
 
@@ -26,10 +26,10 @@ class FileUtility:
 
 class Handler(FileUtility):
 
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, log: Logger) -> None:
         super().__init__()
         self.cfg = config
-        self.log = Logs.initialize_logging("FileHandler", config.logging)
+        self.log = log
 
     def pub_dir_from_cname(self, cname: str) -> str:
         """
@@ -85,11 +85,11 @@ from interfaces.Catalog import Interface as Catalog
 
 class Inventory(FileUtility):
 
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, log: Logger) -> None:
         super().__init__()
         self.cfg = config
-        self.log = Logs.initialize_logging("Inventory", config.logging)
-        self.db = Catalog(config.data)
+        self.log = log
+        self.db = Catalog(f"{config.data}/{config.app_name}.sqlite")
         self.log.info("Connected to Catalog database.")
 
     def add_asset(self, path: str, finalize=False) -> bool:
@@ -105,7 +105,7 @@ class Inventory(FileUtility):
         label, _, _ = Transform.divide_cname(_cname)
         if not self.db.label_exists(label):
             self.db.new_label(label)
-            self.log.debug(f"New label inserted: {label}")
+            self.log.info(f"New label inserted: {label}")
         label_id = self.db.label_id(label)
         self.db.new_asset(cname=_cname,
                           label=label_id,
@@ -113,9 +113,9 @@ class Inventory(FileUtility):
         asset_id = self.db.asset_id(_cname)
         self.log.debug(f"{_cname} inserted as asset ID {asset_id}")
         self.survey_asset_files(asset_id, path, finalize=False)
-        self.log.debug(f"Survey of {_cname} completed.")
+        self.log.info(f"Survey of {_cname} completed.")
         self.db.commit()
-        self.log.debug(f"Changes to database committed.")
+        self.log.info(f"Changes to database committed.")
         return True
 
     def survey_asset_files(self, asset_id: int, path: str, finalize=False) -> bool:
@@ -130,13 +130,14 @@ class Inventory(FileUtility):
                 if not ext in filetype_cache.keys(): 
                     if not self.db.filetype_exists(ext):
                         self.db.new_filetype(ext)
-                        self.log.debug(f"New filetype inserted: {ext}")
+                        self.log.info(f"New filetype inserted: {ext}")
                     filetype_cache[ext] = self.db.filetype_id(ext)
                 fpath = "/".join([_path[0], _basename])
                 _digest = self.digest(fpath)
+                asset_path = _path[0].replace(f"{self.cfg.root}/", "")
                 self.db.new_file(asset=asset_id, 
                                  basename=_basename,
-                                 dirname=_path[0],
+                                 dirname=asset_path,
                                  digest=_digest,
                                  size=shutil.os.path.getsize(fpath),
                                  filetype=filetype_cache[ext],

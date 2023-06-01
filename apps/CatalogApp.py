@@ -6,15 +6,13 @@ except ImportError:
   from yaml import SafeLoader
 
 from contextlib import closing
-from dataclasses import dataclass
 from datetime import datetime
 import shutil
-from typing import Dict
 
-from interfaces.Catalog import DatabaseInterface as CatalogDB
+from apps.Helpers import Config
 from util.FileUtility import Archive, Inventory, Handler
 from util import Logs
-from util.NameUtility import Transform, Validate
+from util.NameUtility import Validate
 
 """
 
@@ -37,14 +35,6 @@ Accession.rebuild_catalog() is used to rebuild the catalog from current assets
 
 """
 
-@dataclass
-class Config:
-    root: str
-    data: str
-    logging: str
-    covers: str
-    intake: str
-
 
 class AccessionApp:
 
@@ -56,10 +46,8 @@ class AccessionApp:
 class Build(AccessionApp):
     def __init__(self, config_path: str) -> None:
         super().__init__(config_path)
-        date_str = datetime.now().strftime('%Y-%m-%d')
-        log_path = f"{self.cfg.logging}/{date_str}-CatalogApp.log"
-        self.inventory = Inventory(f"{self.cfg.data}/catalog.sqlite", log_path)
-        self.log = Logs.initialize_logging("CatalogApp", log_path)
+        self.log = Logs.initialize_logging(self.cfg)
+        self.inventory = Inventory(self.cfg, self.log)
         self.log.info("Build Catalog application initialized.")
     
     def run(self) -> bool:
@@ -68,7 +56,7 @@ class Build(AccessionApp):
         self.log.info(f"Processing {len(labels)} label directories.")
         for label_dir in labels:
             self.log.info(f"Begin processing directory {label_dir}.")
-            label_path = f"{self.cfg.root}{label_dir}"
+            label_path = f"{self.cfg.root}/{label_dir}"
             asset_archives = [_r for _r in 
                               shutil.os.listdir(label_path)
                               if _r.endswith(".rar")
@@ -91,7 +79,7 @@ class Build(AccessionApp):
                 shutil.rmtree(f"{label_path}/{cname}")
                 _digest = self.inventory.digest(f"{label_path}/{archive}")
                 if self.inventory.db.update_asset_digest(asset_id, _digest):
-                    self.log.info(f"Hash digest updated for asset ID {asset_id}.")
+                    self.log.debug(f"Hash digest updated for asset ID {asset_id}.")
                 self.log.info(f"Processing complete for {cname}. Cleaning up...")
                 shutil.os.remove(f"{label_path}/{archive}.old")
             self.log.info(f"Processing complete for label directory {label_dir}.")

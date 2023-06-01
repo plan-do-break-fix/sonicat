@@ -163,7 +163,7 @@ class Interface(DatabaseInterface):
         return True
 
     def new_filetype(self, name: str) -> bool:
-        self.c.execute("INSERT INTO filetype (name) VALUES (?);", (name,))
+        self.c.execute("INSERT INTO filetype (name) VALUES (?);", (name.lower(),))
         self.db.commit()
         return True
 
@@ -220,11 +220,11 @@ class Interface(DatabaseInterface):
         }
 
     def filetype_exists(self, ext: str) -> bool:
-        self.c.execute("SELECT * FROM filetype WHERE name=?;", (ext,))
+        self.c.execute("SELECT * FROM filetype WHERE name=?;", (ext.lower(),))
         return bool(self.c.fetchone())
 
     def filetype_id(self, ext: str) -> int:
-        self.c.execute("SELECT id FROM filetype WHERE name=?;", (ext,))
+        self.c.execute("SELECT id FROM filetype WHERE name=?;", (ext.lower(),))
         return self.c.fetchone()[0]
 
     def label_exists(self, name: str) -> bool:

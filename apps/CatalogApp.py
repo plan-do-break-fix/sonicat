@@ -68,7 +68,7 @@ class Build(AccessionApp):
         self.log.info(f"Processing {len(labels)} label directories.")
         for label_dir in labels:
             self.log.info(f"Begin processing directory {label_dir}.")
-            label_path = f"{self.cfg.root}/{label_dir}"
+            label_path = f"{self.cfg.root}{label_dir}"
             asset_archives = [_r for _r in 
                               shutil.os.listdir(label_path)
                               if _r.endswith(".rar")
@@ -80,7 +80,7 @@ class Build(AccessionApp):
                 self.log.info(f"Begin processing asset {cname}.")
                 Archive.restore(f"{label_path}/{archive}")
                 if not shutil.os.path.isdir(f"{label_path}/{cname}"):
-                    self.log.error(f"Restoration of archive {archive} failed.")
+                    self.log.error(f"{label_path}/{cname} not found after restoring archive.")
                     raise RuntimeError(f"Failed to restore {archive}.")
                 shutil.move(f"{label_path}/{archive}", f"{label_path}/{archive}.old")
                 if self.inventory.add_asset(f"{label_path}/{cname}"):

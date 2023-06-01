@@ -9,6 +9,7 @@ from hashlib import blake2b
 import shutil
 from typing import Dict, List
 
+from apps.CatalogApp import Config
 from util import Logs
 from util.NameUtility import Transform, Validate
 
@@ -25,12 +26,10 @@ class FileUtility:
 
 class Handler(FileUtility):
 
-    def __init__(self, log_path="") -> None:
+    def __init__(self, config: Config) -> None:
         super().__init__()
-        if not log_path:
-            date_str = datetime.now().strftime('%Y-%m-%d')
-            log_path = f"./{date_str}-FileHandler.log"
-        self.log = Logs.initialize_logging("FileHandler", log_path)
+        self.cfg = config
+        self.log = Logs.initialize_logging("FileHandler", config.logging)
 
     def pub_dir_from_cname(self, cname: str) -> str:
         """
@@ -86,13 +85,11 @@ from interfaces.Catalog import Interface as Catalog
 
 class Inventory(FileUtility):
 
-    def __init__(self, db_path: str, log_path="") -> None:
+    def __init__(self, config: Config) -> None:
         super().__init__()
-        if not log_path:
-            date_str = datetime.now().strftime('%Y-%m-%d')
-            log_path = f"./{date_str}-Inventory.log"
-        self.log = Logs.initialize_logging("Inventory", log_path)
-        self.db = Catalog(db_path)
+        self.cfg = config
+        self.log = Logs.initialize_logging("Inventory", config.logging)
+        self.db = Catalog(config.data)
         self.log.info("Connected to Catalog database.")
 
     def add_asset(self, path: str, finalize=False) -> bool:

@@ -57,11 +57,11 @@ class Build(AccessionApp):
         labels = [_d for _d in shutil.os.listdir(self.cfg.root)
                   if not _d.startswith(".")]
         if self.chkpt.major:
-            self.log.info(f"Major checkpoint loaded - skipping to {self.chkpt.major}...")
+            self.log.info(f"Major checkpoint loaded - Skipping to {self.chkpt.major}...")
             labels = self.skip_to(labels, self.chkpt.major)
-        self.log.info(f"Processing {len(labels)} label directories.")
+        self.log.info(f"Processing {len(labels)} label directories")
         for label_dir in labels:
-            self.log.info(f"Begin processing directory {label_dir}.")
+            self.log.info(f"Begin processing directory: {label_dir}")
             label_path = f"{self.cfg.root}/{label_dir}"
             asset_archives = [_r for _r in 
                               shutil.os.listdir(label_path)
@@ -69,31 +69,32 @@ class Build(AccessionApp):
                               and Validate.name_is_canonical(_r.split(".")[0])
                               ]
             if self.chkpt.minor:
-                self.log.info(f"Minor checkpoint loaded - skipping to {self.chkpt.minor}...")
+                self.log.info(f"Minor checkpoint loaded - Skipping to {self.chkpt.minor}...")
                 asset_archives = self.skip_to(asset_archives, self.chkpt.minor)
-            self.log.info(f"Processing {len(asset_archives)} asset archives.")
+            self.log.info(f"Processing {len(asset_archives)} asset archives")
             for archive in asset_archives:
                 cname = archive.split(".")[0]
-                self.log.info(f"Begin processing asset {cname}.")
+                self.log.info(f"Begin processing asset: {cname}")
                 Archive.restore(f"{label_path}/{archive}")
                 if not shutil.os.path.isdir(f"{label_path}/{cname}"):
                     self.log.error(f"{label_path}/{cname} not found after restoring archive.")
-                    raise RuntimeError(f"Failed to restore {archive}.")
+                    raise RuntimeError(f"Failed to restore archive: {archive}")
                 shutil.move(f"{label_path}/{archive}", f"{label_path}/{archive}.old")
                 if self.inventory.add_asset(f"{label_path}/{cname}"):
                     asset_id = self.inventory.db.asset_id(cname)
-                    self.log.info(f"{cname} successfully inventoried as ID {asset_id}.")
+                    self.log.info(f"Successful inventory of {cname} as ID {asset_id}.")
                 if Archive.archive(f"{label_path}/{cname}"):
-                    self.log.info(f"{cname} archived as {archive}.")
+                    self.log.info(f"Successful archive of {cname} as {archive}.")
                 shutil.rmtree(f"{label_path}/{cname}")
                 _digest = self.inventory.digest(f"{label_path}/{archive}")
                 if self.inventory.db.update_asset_digest(asset_id, _digest):
                     self.log.debug(f"Hash digest updated for asset ID {asset_id}.")
-                self.log.info(f"Processing complete for {cname}. Cleaning up...")
+                self.log.info(f"Asset processing completed: {cname}")
                 self.chkpt.set(minor=archive)
                 shutil.os.remove(f"{label_path}/{archive}.old")
-            self.log.info(f"Processing complete for label directory {label_dir}.")
+            self.log.info(f"Label processing completed: {label_dir}.")
             self.chkpt.set(major=label_dir)
+        self.log.info("Build complete. Purging checkpoint.")
         self.chkpt.purge()
         return True
     

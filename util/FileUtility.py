@@ -17,6 +17,7 @@ from util.NameUtility import Transform, Validate
 class FileUtility:
 
     def __init__(self, config: Config) -> None:
+        self.cfg = config
         blacklist_path = f"{config.root}/file-blacklist.yaml"
         with closing(open(blacklist_path, "r")) as _f:
             self.blacklisted = load(_f.read(), SafeLoader)
@@ -30,8 +31,7 @@ class FileUtility:
 class Handler(FileUtility):
 
     def __init__(self, config: Config, log: Logger) -> None:
-        super().__init__()
-        self.cfg = config
+        super().__init__(config)
         self.log = log
 
     def pub_dir_from_cname(self, cname: str) -> str:
@@ -89,8 +89,7 @@ from interfaces.Catalog import Interface as Catalog
 class Inventory(FileUtility):
 
     def __init__(self, config: Config, log: Logger) -> None:
-        super().__init__()
-        self.cfg = config
+        super().__init__(config)
         self.log = log
         self.db = Catalog(f"{config.data}/{config.app_name}.sqlite")
         self.log.info("Connected to Catalog database.")

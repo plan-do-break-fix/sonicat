@@ -130,7 +130,7 @@ class Inventory(FileUtility):
         for _path in shutil.os.walk(path):
             for _basename in _path[2]:
                 fpath = "/".join([_path[0], _basename])
-                if _basename in self.blacklisted:
+                if _basename.lower() in self.blacklisted:
                     shutil.os.remove(fpath)
                     self.log.info(f"Blacklisted file {_basename} removed from asset.")
                 ext = _basename.split(".")[-1]

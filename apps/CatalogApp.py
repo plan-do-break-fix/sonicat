@@ -4,12 +4,7 @@ from contextlib import closing
 from datetime import datetime
 import shutil
 from typing import List
-
-from yaml import load
-try:
-  from yaml import CSafeLoader as SafeLoader
-except ImportError:
-  from yaml import SafeLoader
+from yaml import load, SafeLoader
 
 from apps.Helpers import CheckPoint, Config
 from util.FileUtility import Archive, Inventory, Handler
@@ -76,19 +71,40 @@ class Build(AccessionApp):
                 cname = archive.split(".")[0]
                 self.log.info(f"Begin processing asset: {cname}")
                 Archive.restore(f"{label_path}/{archive}")
-                if not shutil.os.path.isdir(f"{label_path}/{cname}"):
-                    self.log.error(f"{label_path}/{cname} not found after restoring archive.")
-                    raise RuntimeError(f"Failed to restore archive: {archive}")
-                shutil.move(f"{label_path}/{archive}", f"{label_path}/{archive}.old")
+                if shutil.os.path.isdir(f"{label_path}/{cname}"):
+                    shutil.move(f"{label_path}/{archive}", f"{label_path}/{archive}.old")
+                else:
+                    self.log.error(f"Archive restore failed for {label_path}/{archive}")
+                    self.log.info("Moving archive to recovery.")
+                    shutil.move(f"{label_path}/{archive}", self.cfg.recovery)
+                    self.log.info("Proceeding to next asset.")
+                    continue
                 if self.inventory.add_asset(f"{label_path}/{cname}"):
                     asset_id = self.inventory.db.asset_id(cname)
                     self.log.info(f"Successful inventory of {cname} as ID {asset_id}.")
+                else:
+                    self.log.error(f"Inventory of {cname} failed without an exception.")
+                    self.log.info("Moving asset dir and original archive to recovery.")
+                    shutil.move(f"{label_path}/{archive}.old", self.cfg.recovery)
+                    shutil.move(f"{label_path}/{cname}", self.cfg.recovery)
+                    self.log.info("Proceeding to next asset.")
+                    continue
                 if Archive.archive(f"{label_path}/{cname}"):
                     self.log.info(f"Successful archive of {cname} as {archive}.")
+                else:
+                    self.log.error(f"Archive failed after successful inventory: {cname}")
+                    self.log.info("Moving asset dir and original archive to recovery.")
+                    shutil.move(f"{label_path}/{archive}.old", self.cfg.recovery)
+                    shutil.move(f"{label_path}/{cname}", self.cfg.recovery)
+                    self.log.info("Proceeding to next asset.")
+                    continue
                 shutil.rmtree(f"{label_path}/{cname}")
                 _digest = self.inventory.digest(f"{label_path}/{archive}")
                 if self.inventory.db.update_asset_digest(asset_id, _digest):
                     self.log.debug(f"Hash digest updated for asset ID {asset_id}.")
+                else:
+                    self.log.error(f"Unable to update asset hash digest for {archive}")
+                    self.log.info("Proceeding.")
                 self.log.info(f"Asset processing completed: {cname}")
                 self.chkpt.set(minor=archive)
                 shutil.os.remove(f"{label_path}/{archive}.old")
@@ -98,7 +114,7 @@ class Build(AccessionApp):
         self.chkpt.purge()
         return True
     
-    def skip_to(self, original: List, target) -> List:
+    def skip_to(self, original: List[object], target: object) -> List[object]:
         for _i, _o in enumerate(original):
             if _o == target:
                 return original[_i+1:]

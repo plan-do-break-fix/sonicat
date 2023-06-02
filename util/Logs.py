@@ -16,7 +16,7 @@ def initialize_logging(config: Config) -> logging.Logger:
     date_str = datetime.now().strftime('%Y-%m-%d')
     log_path = f"{config.logging}/{date_str}-{config.app_name}.log"
     fh = logging.FileHandler(log_path)
-    FORMAT = "%(asctime)s | %(name)10s | %(levelname)8s | %(message)s"
+    FORMAT = "%(asctime)s | %(name)10s | %(levelname)5s | %(message)s"
     formatter = logging.Formatter(FORMAT)
     fh.setFormatter(formatter)
     logger.addHandler(fh)

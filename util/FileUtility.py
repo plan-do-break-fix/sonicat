@@ -18,7 +18,7 @@ class FileUtility:
 
     def __init__(self, config: Config) -> None:
         self.cfg = config
-        blacklist_path = f"{config.root}/file-blacklist.yaml"
+        blacklist_path = f"{config.data}/file-blacklist.yaml"
         with closing(open(blacklist_path, "r")) as _f:
             self.blacklisted = load(_f.read(), SafeLoader)
 

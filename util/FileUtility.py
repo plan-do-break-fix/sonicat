@@ -132,6 +132,7 @@ class Inventory(FileUtility):
                 if _basename.lower() in self.blacklisted:
                     shutil.os.remove(fpath)
                     self.log.info(f"Blacklisted file {_basename} removed from asset.")
+                    continue
                 ext = _basename.split(".")[-1]
                 if not ext in filetype_cache.keys(): 
                     if not self.db.filetype_exists(ext):

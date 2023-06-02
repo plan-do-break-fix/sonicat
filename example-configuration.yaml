@@ -1,9 +1,11 @@
 ---
 app_name: ExampleApp
 
+log_level: debug
+
 root: /home/user42/sounds
 data: /home/user42/sounds/.catalog
 logging: /home/user42/sounds/.catalog/logs
-log_level: debug
 covers: /home/user42/sounds/.catalog/covers
 intake: /home/user42/sounds/.sort
+recover: /home/user42/sounds/.sort/.recover

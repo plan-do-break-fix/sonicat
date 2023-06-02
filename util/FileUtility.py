@@ -8,6 +8,7 @@ from hashlib import blake2b
 from logging import Logger
 import shutil
 from typing import Dict, List
+from yaml import load, SafeLoader
 
 from apps.Helpers import Config
 from util import Logs
@@ -15,8 +16,10 @@ from util.NameUtility import Transform, Validate
 
 class FileUtility:
 
-    def __init__(self) -> None:
-        pass
+    def __init__(self, config: Config) -> None:
+        blacklist_path = f"{config.root}/file-blacklist.yaml"
+        with closing(open(blacklist_path, "r")) as _f:
+            self.blacklisted = load(_f.read(), SafeLoader)
 
     def digest(self, path: str) -> str:
         with closing(open(path, "rb")) as _f:
@@ -126,13 +129,16 @@ class Inventory(FileUtility):
         filetype_cache = {}
         for _path in shutil.os.walk(path):
             for _basename in _path[2]:
+                fpath = "/".join([_path[0], _basename])
+                if _basename in self.blacklisted:
+                    shutil.os.remove(fpath)
+                    self.log.info(f"Blacklisted file {_basename} removed from asset.")
                 ext = _basename.split(".")[-1]
                 if not ext in filetype_cache.keys(): 
                     if not self.db.filetype_exists(ext):
                         self.db.new_filetype(ext)
                         self.log.info(f"New filetype inserted: {ext}")
                     filetype_cache[ext] = self.db.filetype_id(ext)
-                fpath = "/".join([_path[0], _basename])
                 _digest = self.digest(fpath)
                 asset_path = _path[0].replace(f"{self.cfg.root}/", "")
                 self.db.new_file(asset=asset_id, 

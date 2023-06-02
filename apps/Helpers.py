@@ -10,12 +10,13 @@ from typing import Dict
 @dataclass
 class Config:
     app_name: str
+    log_level: str
     root: str
     data: str
     logging: str
-    log_level: str
     covers: str
     intake: str
+    recovery: str
 
 
 class CheckPoint:

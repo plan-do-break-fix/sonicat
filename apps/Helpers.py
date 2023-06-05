@@ -12,11 +12,12 @@ class Config:
     app_name: str
     log_level: str
     root: str
+    config: str
     data: str
     logging: str
     covers: str
     intake: str
-    recovery: str
+    recover: str
 
 
 class CheckPoint:

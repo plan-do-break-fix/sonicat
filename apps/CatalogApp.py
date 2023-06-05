@@ -1,53 +1,63 @@
 #!/usr/bin/python3
 
-from contextlib import closing
-from datetime import datetime
 import shutil
 from typing import List
-from yaml import load, SafeLoader
 
-from apps.Helpers import CheckPoint, Config
-from util.FileUtility import Archive, Inventory, Handler
+from apps.ConfiguredApp import App
+from util.FileUtility import FileUtility as files
+from util.FileUtility import Archive, Inventory
 from util import Logs
 from util.NameUtility import Validate
 
-"""
 
-Accession.intake() is used to add new assets to the catalog
-  - Runs on the intake folder
-  - Accesses each canonically-named folder as an asset
-  - Calls Archive.archive()
-  - Calls FileHandler.sort_assets()
-  - Intended to be called regularly/programmatically
-
-Accession.rebuild_catalog() is used to rebuild the catalog from current assets
-  - Runs on the catalog ROOT
-  - Flushes the current catalog, if it exists
-  - Iterates over each label directory in ROOT
-  - For each canonically-named rar file
-    - Calls Archive.restore()
-    - Assess the restored folder as as asset
-    - Calls Archive.archive()
-  - Intended to be called once, and even that may be too much.
-
-"""
-
-
-class AccessionApp:
-
-    def __init__(self, config_path: str) -> None:
-        with closing(open(config_path, "r")) as _f:
-            self.cfg = Config(**load(_f.read(), SafeLoader))
-        self.chkpt = CheckPoint(self.cfg)
-
-
-class Build(AccessionApp):
+class Build(App):
     def __init__(self, config_path: str) -> None:
         super().__init__(config_path)
         self.log = Logs.initialize_logging(self.cfg)
         self.inventory = Inventory(self.cfg, self.log)
-        self.log.info("Build Catalog application initialized.")
+        self.log.info("Catalog Build application initialized.")
     
+    def update_labels(self) -> bool:
+        names_in_dirs = files.collect_labels(self.cfg.root)
+        if not all([len(names_in_dirs[_k]) <= 1
+                    for _k in names_in_dirs.keys()]):
+            raise RuntimeError("Normalize catalog prior to updating database.")
+        known_label_dirs = self.inventory.db.all_label_dirs()
+        for label_dir in names_in_dirs.keys():
+            if not names_in_dirs[label_dir]:
+                continue
+            if not label_dir in known_label_dirs:
+                label_name = names_in_dirs[label_dir][0]
+                self.inventory.db.new_label(label_name, label_dir)
+                self.log.info(f"New label inserted: {label_name}")
+        return True
+    
+    def update_label_assets(self, label_dir: str) -> bool:
+        label_id = self.inventory.db.label_id_by_dirname(label_dir)
+        found_assets = files.get_canonical_assets(f"{self.cfg.root}/{label_dir}")
+        known_assets = self.inventory.db.all_assets_by_label(label_id)
+        for asset in found_assets:
+            cname = asset.replace(".rar", "")
+            if not cname in known_assets:
+                self.inventory.db.new_asset(cname, label_id, finalize=True)
+                self.log.info(f"New asset inserted: {label_dir}/{cname}")
+        return True
+
+    def run_simple_update(self) -> bool:
+        self.log.info("Updating labels in catalog.")
+        self.update_labels()
+        label_dirs = self.inventory.db.all_label_dirs()
+        for _dir in label_dirs:
+            self.log.info(f"Updating assets in label directory: {_dir}")
+            self.update_label_assets(_dir)
+        self.log.info("Labels and assets updated but not inventoried.")
+        return True
+
+
+
+
+
+"""
     def run(self) -> bool:
         labels = [_d for _d in shutil.os.listdir(self.cfg.root)
                   if not _d.startswith(".")]
@@ -118,28 +128,4 @@ class Build(AccessionApp):
         for _i, _o in enumerate(original):
             if _o == target:
                 return original[_i+1:]
-
-
-
-class Update(AccessionApp):
-
-    def __init__(self, config_path: str) -> None:
-        super().__init__(config_path)
-        self.handler = Handler()
-
-    def run(self) -> bool:
-        labels = [_d for _d in shutil.os.listdir(self.cfg.intake)
-                  if not _d.startswith(".")]
-        for label_dir in labels:
-            assets = [_d for _d in 
-                      shutil.os.list(f"{self.cfg.root}/{label_dir}")
-                      if shutil.os.path.isdir(_d)
-                      and Validate.name_is_canonical(_d)
-                      ]
-            for cname in assets:
-                self.inventory.add_asset(f"{self.cfg.data}/{cname}")
-                Archive.archive(f"{self.cfg.data}/{cname}")
-
-        self.handler.sort_assets(self.cfg.intake, self.cfg.root)
-
-        return True
+"""

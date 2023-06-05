@@ -16,71 +16,73 @@ from util.NameUtility import Transform, Validate
 
 class FileUtility:
 
-    def __init__(self, config: Config) -> None:
-        self.cfg = config
-        blacklist_path = f"{config.data}/file-blacklist.yaml"
-        with closing(open(blacklist_path, "r")) as _f:
-            self.blacklisted = load(_f.read(), SafeLoader)
-
-    def digest(self, path: str) -> str:
+    @staticmethod
+    def digest(path: str) -> str:
         with closing(open(path, "rb")) as _f:
             return blake2b(_f.read()).hexdigest()
 
-
-
-class Handler(FileUtility):
-
-    def __init__(self, config: Config, log: Logger) -> None:
-        super().__init__(config)
-        self.log = log
-
-    def pub_dir_from_cname(self, cname: str) -> str:
+    @staticmethod
+    def pub_dir_from_cname(cname: str) -> str:
         """
         Return the name of the publisher directory associated with a canonically-names asset.
         """
         return cname.split(" - ")[0].lower().replace(" ", "_")
 
-    def get_canonical_assets(self, dir: str) -> List[str]:
+    @staticmethod
+    def get_canonical_assets(path: str) -> List[str]:
         """
         Return list of all canonically-named assets in directory.
         """
-        return [_f for _f in shutil.os.listdir(dir) 
+        return [_f for _f in shutil.os.listdir(path) 
                 if Validate.name_is_canonical(_f)
                 ]
 
-    def group_by_publisher(self, dir: str) -> Dict[str, str]:
+    @staticmethod
+    def collect_labels(dir: str):
+        label_dirs = [_d for _d in shutil.os.listdir(dir)
+                      if shutil.os.path.isdir(f"{dir}/{_d}")
+                      and not _d.startswith(".")]
+        label_paths = [f"{dir}/{_d}" for _d in label_dirs]
+        label_names = [list(set([_d.split(" - ")[0] for _d in shutil.os.listdir(_p)])) 
+                       for _p in label_paths]
+        return dict(zip(label_dirs, label_names))
+
+
+class IntakeHandler(FileUtility):
+
+    def __init__(self, config: Config, log: Logger) -> None:
+        self.cfg = config
+
+
+    def assets_grouped_by_label_dir(self, dir: str) -> Dict[str, str]:
         """
-        Transforms list of canonically-named assets into a dictionary of (publisher_dir, list(asset_name)) key-value pairs.
         """
         grouped = {}
-        for _a in self.get_canonical_assets(dir):
-            if self.pub_dir_from_cname(_a) in grouped.keys():
-                grouped[self.pub_dir_from_cname(_a)].append(_a)
+        for _a in FileUtility.get_canonical_assets(dir):
+            if FileUtility.sub_dir_from_cname(_a) in grouped.keys():
+                grouped[FileUtility.pub_dir_from_cname(_a)].append(_a)
             else:
-                grouped[self.pub_dir_from_cname(_a)] = [_a]
+                grouped[FileUtility.pub_dir_from_cname(_a)] = [_a]
         return grouped
 
-    def sort_assets(self, source: str, dest: str, threshold=3) -> bool:
+    def sort_intake(self, threshold=3) -> bool:
         """
         Moves all canonically-named assets in source path to the corresponding published directory in dest path.
         threshold controls automatic creation of publisher directories when multiple products exist for an unestablished publisher.
         """
-        self.log.info("Begin sorting of intake directory.")
-        grouped = self.group_by_publisher(source)
-        for publisher in grouped.keys():
-            pub_dir = f"{dest}/{publisher}"
-            if not shutil.os.path.exists(pub_dir):
-                if len(grouped[publisher]) >= threshold:
-                    shutil.os.mkdir(pub_dir)
-                    self.log.info(f"Publisher directory created: {publisher}")
+        grouped = self.assets_grouped_by_label_dir(self.cfg.intake)
+        for label_dir in grouped.keys():
+            label_path = f"{self.cfg.root}/{label_dir}"
+            if not shutil.os.path.exists(label_path):
+                if len(grouped[label_dir]) >= threshold:
+                    shutil.os.mkdir(label_dir)
                 else: 
                     continue
-            for _asset in grouped[publisher]:
-                if shutil.os.path.exists(f"{pub_dir}/{_asset}"):
-                    shutil.move(f"{source}{_asset}", f"{source}{_asset}.duplicate")
-                    self.log.debug(f"{_asset} marked as duplicate.")
-                shutil.move(f"{source}{_asset}", pub_dir)
-                self.log.debug(f"{_asset} moved from intake to {publisher}.")
+            for _asset in grouped[label_dir]:
+                if shutil.os.path.exists(f"{label_path}/{_asset}"):
+                    shutil.move(f"{self.cfg.intake}/{_asset}", f"{self.cfg.intake}/{_asset}.duplicate")
+                else:
+                    shutil.move(f"{self.cfg.intake}{_asset}", label_path)
         return True
 
 
@@ -89,10 +91,13 @@ from interfaces.Catalog import Interface as Catalog
 class Inventory(FileUtility):
 
     def __init__(self, config: Config, log: Logger) -> None:
-        super().__init__(config)
+        self.cfg = config
         self.log = log
         self.db = Catalog(f"{config.data}/{config.app_name}.sqlite")
-        self.log.info("Connected to Catalog database.")
+        blacklist_path = f"{config.config}/file-blacklist.yaml"
+        with closing(open(blacklist_path, "r")) as _f:
+            self.blacklisted = load(_f.read(), SafeLoader)
+
 
     def add_asset(self, path: str, finalize=False) -> bool:
         """
@@ -107,17 +112,13 @@ class Inventory(FileUtility):
         label, _, _ = Transform.divide_cname(_cname)
         if not self.db.label_exists(label):
             self.db.new_label(label)
-            self.log.info(f"New label inserted: {label}")
         label_id = self.db.label_id(label)
         self.db.new_asset(cname=_cname,
                           label=label_id,
                           finalize=finalize)
         asset_id = self.db.asset_id(_cname)
-        self.log.debug(f"{_cname} inserted as asset ID {asset_id}")
         self.survey_asset_files(asset_id, path, finalize=False)
-        self.log.info(f"Survey of {_cname} completed.")
         self.db.commit()
-        self.log.info(f"Changes to database committed.")
         return True
 
     def survey_asset_files(self, asset_id: int, path: str, finalize=False) -> bool:
@@ -131,15 +132,13 @@ class Inventory(FileUtility):
                 fpath = "/".join([_path[0], _basename])
                 if _basename.lower() in self.blacklisted:
                     shutil.os.remove(fpath)
-                    self.log.info(f"Blacklisted file {_basename} removed from asset.")
                     continue
                 ext = _basename.split(".")[-1]
                 if not ext in filetype_cache.keys(): 
                     if not self.db.filetype_exists(ext):
                         self.db.new_filetype(ext)
-                        self.log.info(f"New filetype inserted: {ext}")
                     filetype_cache[ext] = self.db.filetype_id(ext)
-                _digest = self.digest(fpath)
+                _digest = FileUtility.digest(fpath)
                 asset_path = _path[0].replace(f"{self.cfg.root}/", "")
                 self.db.new_file(asset=asset_id, 
                                  basename=_basename,
@@ -148,7 +147,6 @@ class Inventory(FileUtility):
                                  size=shutil.os.path.getsize(fpath),
                                  filetype=filetype_cache[ext],
                                  finalize=finalize)
-                self.log.debug(f"File {fpath} added to catalog.")
 
 
 import subprocess

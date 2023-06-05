@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS file (
 CREATE TABLE IF NOT EXISTS label (
     id integer PRIMARY KEY,
     name text NOT NULL,
+    dirname text NOT NULL,
     cover text
 );
 """,
@@ -151,8 +152,9 @@ class Interface(DatabaseInterface):
             self.db.commit()
         return True
 
-    def new_label(self, name: str) -> bool:
-        self.c.execute("INSERT INTO label (name) VALUES (?);", (name,))
+    def new_label(self, name: str, dirname: str) -> bool:
+        self.c.execute("INSERT INTO label (name, dirname) VALUES (?, ?);",
+                       (name, dirname))
         self.db.commit()
         return True
 
@@ -231,8 +233,12 @@ class Interface(DatabaseInterface):
         self.c.execute("SELECT * FROM label WHERE name=?;", (name,))
         return bool(self.c.fetchone())
 
-    def label_id(self, name: str) -> int:
+    def label_id_by_name(self, name: str) -> int:
         self.c.execute("SELECT id FROM label WHERE name=?;", (name,))
+        return self.c.fetchone()[0]
+
+    def label_id_by_dirname(self, dirname: str) -> int:
+        self.c.execute("SELECT id FROM label WHERE dirname=?;", (dirname,))
         return self.c.fetchone()[0]
 
     def tag_exists(self, name: str) -> bool:
@@ -267,3 +273,12 @@ class Interface(DatabaseInterface):
         return self.c.fetchall()
 
     #def get_path(self, asset: str)
+
+
+    def all_label_dirs(self) -> List[str]:
+        self.c.execute("SELECT dirname FROM label")
+        return [_i[0] for _i in self.c.fetchall()]
+
+    def all_assets_by_label(self, label_id: int) -> List[str]:
+        self.c.execute("SELECT name FROM asset WHERE label=?;", (label_id,))
+        return [_i[0] for _i in self.c.fetchall()]

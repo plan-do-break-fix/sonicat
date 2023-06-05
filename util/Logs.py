@@ -21,3 +21,21 @@ def initialize_logging(config: Config) -> logging.Logger:
     fh.setFormatter(formatter)
     logger.addHandler(fh)
     return logger
+
+
+class StdOutLogger:
+
+    def debug(self, msg):
+        print(f"Debug: {msg}")
+
+    def info(self, msg):
+        print(f"Info: {msg}")
+
+    def warning(self, msg):
+        print(f"Warning: {msg}")
+
+    def error(self, msg):
+        print(f"Error: {msg}")
+
+
+

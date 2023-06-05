@@ -48,6 +48,7 @@ class WebInterface:
             pass
         finally:
             pass
+        return False
 
     def domain_from_url(self, url: str) -> str:
         if url.startswith("http"):
@@ -55,23 +56,37 @@ class WebInterface:
         if url.startswith("www"):
             url = url[4:]
         if url.endswith("/"):
-            url = url.split("/")[0]
-        return url
+            url = url[:-1]
+        if not "/" in url:
+            return url
+        else:
+            return url.split("/")[0]
     
-    def parse_description(self, soup: BeautifulSoup) -> str:
-        body, candidates = soup.find("body"), []
+    def description_by_tag_attrs(self, soup: BeautifulSoup) -> List[str]:
+        body, description = soup.find("body"), []
         tags = ["div", "p"]
         attributes = ["class", "id", "itemprop"]
         values = ["desc", "copy-content"]
-        for _tag in tags:
-            all_results = body.find_all(_tag)
-            for result in all_results:
-                for _attr in attributes:
-                    if _attr in result.attrs.keys():
-                        for _val in values:
-                            if _val in result.attrs[_attr]:
-                                candidates.append(result.text)
-        return candidates
+        result_lists = [body.find_all(_tag) for _tag in tags]
+        all_results = [_r for _rl in result_lists for _r in _rl]
+        for result in all_results:
+            for _attr in attributes:
+                if _attr not in result.attrs.keys():
+                    continue
+                for _val in values:
+                    if _val in result.attrs[_attr]:
+                        description.append(result.text)
+        return description
+
+
+    def contents_from_description(self, soup: BeautifulSoup) -> List[str]:
+        pass
+
+    def content_section_tag(self, soup: BeautifulSoup) -> List[BeautifulSoup]:
+        pass
+
+    def contents_from_tag(self, tag: BeautifulSoup) -> List[str]:
+        pass
 
     def show_more():
         pass

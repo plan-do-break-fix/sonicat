@@ -23,6 +23,7 @@ class Validate:
         """
         Returns True if asset FS name conforms to <Publisher> - <Title> naming convention.
         """
+        name = name.replace(".rar", "")
         return all([
             len(name.split(" - ")) > 1,
             not name.startswith(" "),
@@ -37,6 +38,7 @@ class Transform:
 
     @staticmethod
     def divide_cname(cname: str) -> Tuple[str]:
+        cname = cname.replace(".rar", "")
         parts = cname.split(" - ")
         label, title = parts[0], " - ".join(parts[1:])
         if " (" in title:

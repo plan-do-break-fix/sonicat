@@ -47,22 +47,40 @@ class Transform:
             note = ""
         return (label, title, note)
 
-    def name_forms(self, name: str) -> List[str]:
+    def name_variations(self, name: str) -> List[str]:
+        if " - " in name:
+            names = [name.replace(" - ", " ")]
+            for part in name.split(" - "):
+                names.append(part)
+        alt_spaces = [_a for _alts in
+                       [self.add_allowed_spaces(_n)
+                       for _n in names]
+                       for _a in _alts]
+        stripped = [_a for _alts in
+                    [self.strip_stopwords(_n) 
+                    for _n in names
+                    if self.strip_stopwords(_n) != _n]
+                    for _a in _alts]
+        return names + alt_spaces + stripped
+
+    def stub_forms(self, variations: List[str]) -> List[str]:
         """
         Returns common stub forms of <name>, in whole and parts if applicable.
         """
-        if " - " in name:
-            name_parts, partial_forms = name.split(" - "), []
-            for _part in name_parts:
-                for _form in self.name_forms(_part):
-                    partial_forms.append(_form)
-            name = name.replace(" - ", " ")
-        else:
-            partial_forms = []
-        cleansed = name.replace("-", " ")  #why a space instead of nothing? if "a-b" becomes "a b", then all combined forms will be generated. If it becomes "ab", that it all it will ever be.
-        forms = self.join_tokens(self.tokenize(cleansed))
-        return forms + partial_forms if partial_forms else forms
-               
+        forms = []
+        for _v in variations:
+            forms += self.join_tokens(self.tokenize(_v))
+        return forms
+    
+    def add_allowed_spaces(self, name: str) -> str:
+        allowed = [("drumkit", "drum kit"),
+                   ("hiphop", "hip hop"),
+                   ("lofi", "lo fi")
+                   ]
+        for _t in allowed:
+            if _t[0] in name:
+                name = name.replace(_t[0], _t[1])
+
     def tokenize(self, name: str) -> List[str]:
         """
         Returns list of tokens from a publisher or product name.

@@ -100,7 +100,7 @@ INSERT INTO source (name)
 
 
 
-class Interface(DatabaseInterface):
+class CatalogInterface(DatabaseInterface):
 
     def __init__(self, dbpath="") -> None:
         super().__init__(dbpath)
@@ -111,16 +111,15 @@ class Interface(DatabaseInterface):
                         label: int,
                         finalize=False
                         ) -> bool:
-        self.c.execute(f"""
-        INSERT INTO asset (name, label) VALUES (?,?)
-        ;""", (cname, label))
+        self.c.execute("INSERT INTO asset (name, label) VALUES (?,?);",
+                       (cname, label))
         if finalize:
             self.db.commit()
         return True
 
     def update_asset_cover(self, asset: int, path: str) -> bool:
         self.c.execute("UPDATE asset SET cover = ? WHERE id = ?;",
-                           (path, asset))
+                       (path, asset))
         self.db.commit()
         return True
 
@@ -252,7 +251,11 @@ class Interface(DatabaseInterface):
 
 
 
-
+    def asset_cname(self, asset: int) -> str:
+        self.c.execute("SELECT name FROM asset WHERE id = ?;",
+                       (asset,))
+        result = self.c.fetchone()
+        return result[0] if result else ""
     
     def asset_cover(self, asset: int) -> str:
         self.c.execute("SELECT cover FROM asset WHERE id = ?;",

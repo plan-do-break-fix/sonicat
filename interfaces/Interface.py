@@ -26,16 +26,10 @@ class WebInterface:
 
     def __init__(self):
         self.names = NameUtility.Transform()
-        self.domains = {
-            "social_platforms": [
-                "facebook.com",
-                "instagram.com",
-                "linkedin.com",
-                "tiktok.com",
-                "twitter.com",
-                "youtube.com"
-            ]
-        }
+
+    def encode(self, query: str) -> str:
+        query = query.replace(" - ", " ")
+        return "%20".join(query.split(" "))
 
     def get_html(self, url: str) -> str:
         resp = requests.get(url)

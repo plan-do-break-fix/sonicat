@@ -58,7 +58,28 @@ def test_join_tokens(input, expected, transform):
 
 
 
+@pytest.mark.parametrize(
+    "input, expected",
+    [
+        ("Noiiz", ["noizz"]),
+        ("Odd Smpls", ["odd smpls"]),
+        ("Stargazing - Vocal Future Pop",
+            ["stargazing vocal future pop",
+             "stargazing",
+             "vocal future pop"]
+        ),
+        ("LoFi & Chill", ["lofi & chill", "lo fi & chill"]),
+        ("Lofi Hiphop", ["lofi hiphop", "lo fi hip hop"]),
+        ("Black Octopus Sound", ["black octopus sound", "black octopus"])
 
+    ]
+)
+def test_name_variations(input, expected, transform):
+    result = transform.name_variations(input)
+    result.sort(), expected.sort()
+    assert result == expected
+
+"""
 @pytest.mark.parametrize(
     "input, expected",
     [
@@ -79,3 +100,5 @@ def test_name_forms(input, expected, transform):
     result.sort(), expected.sort()
     assert result == expected
 
+
+"""

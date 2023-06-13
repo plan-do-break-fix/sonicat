@@ -50,7 +50,7 @@ class FileUtility:
 
 class IntakeHandler(FileUtility):
 
-    def __init__(self, config: Config, log: Logger) -> None:
+    def __init__(self, config: Config) -> None:
         self.cfg = config
 
 
@@ -59,7 +59,7 @@ class IntakeHandler(FileUtility):
         """
         grouped = {}
         for _a in FileUtility.get_canonical_assets(dir):
-            if FileUtility.sub_dir_from_cname(_a) in grouped.keys():
+            if FileUtility.pub_dir_from_cname(_a) in grouped.keys():
                 grouped[FileUtility.pub_dir_from_cname(_a)].append(_a)
             else:
                 grouped[FileUtility.pub_dir_from_cname(_a)] = [_a]
@@ -75,18 +75,18 @@ class IntakeHandler(FileUtility):
             label_path = f"{self.cfg.root}/{label_dir}"
             if not shutil.os.path.exists(label_path):
                 if len(grouped[label_dir]) >= threshold:
-                    shutil.os.mkdir(label_dir)
+                    shutil.os.mkdir(label_path)
                 else: 
                     continue
             for _asset in grouped[label_dir]:
                 if shutil.os.path.exists(f"{label_path}/{_asset}"):
-                    shutil.move(f"{self.cfg.intake}/{_asset}", f"{self.cfg.intake}/{_asset}.duplicate")
+                    shutil.move(f"{self.cfg.intake}/{_asset}", f"{self.cfg.recover}/{_asset}.duplicate")
                 else:
-                    shutil.move(f"{self.cfg.intake}{_asset}", label_path)
+                    shutil.move(f"{self.cfg.intake}/{_asset}", f"{label_path}/{_asset}")
         return True
 
 
-from interfaces.Catalog import Interface as Catalog
+from interfaces.Catalog import CatalogInterface as Catalog
 
 class Inventory(FileUtility):
 

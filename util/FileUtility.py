@@ -121,6 +121,8 @@ class Inventory(FileUtility):
         self.db.commit()
         return True
 
+
+
     def survey_asset_files(self, asset_id: int, path: str, finalize=False) -> bool:
         """
         Creates a file table entry for each file in the asset.
@@ -130,9 +132,9 @@ class Inventory(FileUtility):
         for _path in shutil.os.walk(path):
             for _basename in _path[2]:
                 fpath = "/".join([_path[0], _basename])
-                if _basename.lower() in self.blacklisted:
-                    shutil.os.remove(fpath)
-                    continue
+                #if _basename.lower() in self.blacklisted:
+                #    shutil.os.remove(fpath)
+                #    continue
                 ext = _basename.split(".")[-1]
                 if not ext in filetype_cache.keys(): 
                     if not self.db.filetype_exists(ext):
@@ -147,6 +149,24 @@ class Inventory(FileUtility):
                                  size=shutil.os.path.getsize(fpath),
                                  filetype=filetype_cache[ext],
                                  finalize=finalize)
+
+    ## split survey_asset_files() into two steps to separate db functions from local file functions
+
+    @staticmethod
+    def asset_file_data(path: str) -> Dict[str, Dict[str, str]]:
+        file_data = {}
+        for _path in shutil.os.walk(path):
+            for basename in _path[2]:
+                fpath = "/".join([_path[0], basename])
+                file_data[fpath.replace("/tmp", "")] = {
+                    "basename": basename,
+                    "dirname": _path[0].replace(path, ""),
+                    "size": shutil.os.path.getsize(fpath),
+                    "filetype": basename.split(".")[-1]
+                }
+        return file_data
+
+
 
 
 import subprocess
@@ -173,5 +193,8 @@ class Archive:
             raise ValueError
         parent_dir, target = shutil.os.path.split(path)
         shutil.os.chdir(parent_dir)
-        subprocess.run(["unrar", "x", target])
+        subprocess.run(["unrar", "x", target],
+                       stdout=subprocess.DEVNULL,
+                       stderr=subprocess.STDOUT
+                       )
         return True

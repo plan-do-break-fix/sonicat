@@ -52,6 +52,8 @@ class Transform:
             names = [name.replace(" - ", " ")]
             for part in name.split(" - "):
                 names.append(part)
+        else:
+            names = [name]
         alt_spaces = [_a for _alts in
                        [self.add_allowed_spaces(_n)
                        for _n in names]

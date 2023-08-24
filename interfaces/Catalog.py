@@ -22,9 +22,9 @@ CREATE TABLE IF NOT EXISTS file (
     asset integer NOT NULL,
     basename text NOT NULL,
     dirname text NOT NULL,
-    digest text NOT NULL,
     size integer NOT NULL,
     filetype integer NOT NULL,
+    digest text,
     FOREIGN KEY (asset) REFERENCES asset (id),
     FOREIGN KEY (filetype) REFERENCES file_type (id)
 );
@@ -138,17 +138,22 @@ class CatalogInterface(DatabaseInterface):
     def new_file(self, asset: int,
                        basename: str,
                        dirname: str,
-                       digest: str,
                        size: int,
                        filetype: int,
                        finalize=False
                        ) -> bool:
         self.c.execute("""
-        INSERT INTO file (asset, basename, dirname, digest, size, filetype)
-        VALUES (?,?,?,?,?,?)
-        ;""", (asset, basename, dirname, digest, size, filetype))
+        INSERT INTO file (asset, basename, dirname, size, filetype)
+        VALUES (?,?,?,?,?)
+        ;""", (asset, basename, dirname, size, filetype))
         if finalize:
             self.db.commit()
+        return True
+
+    def update_asset_digest(self, file: int, digest: str) -> bool:
+        self.c.execute("UPDATE file SET digest = ? WHERE id = ?;",
+                       (digest, file))
+        self.db.commit()
         return True
 
     def new_label(self, name: str, dirname: str) -> bool:

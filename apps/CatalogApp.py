@@ -51,6 +51,9 @@ class Catalog(App):
         FileUtility.move_asset(target, self.cfg.temp)
         Archive.archive(target)
         FileUtility.move_asset(f"{self.cfg.temp}/{cname}.rar", store_path)
+        if not shutil.os.path.isfile(f"{store_path}/{cname}.rar"):
+            raise RuntimeWarning
+        shutil.rmtree(f"{self.cfg.temp}/{cname}")
         return True
     
     def managed_batch_intake(self, path: str) -> None:
@@ -67,15 +70,15 @@ class Catalog(App):
             asset_id = self.db.asset_id(cname)
             self.insert_asset_files(asset_id, file_data)
         self.db.commit()
+        return True
 
-    def unmanaged_batch_intake(self, path: str, file_survey=False) -> None:
-        assets = FileUtility.get_canonical_assets(path)
-        for asset in assets:
-            if not file_survey:
-                self.unmanaged_intake(asset)
-            elif file_survey:
-                file_data = FileUtility.survey_asset_files(path)
-                self.unmanaged_intake(asset, file_data)
+    def unmanaged_batch_intake(self, path: str, survey=False) -> None:
+        assets, file_data = FileUtility.get_canonical_assets(path), {}
+        for cname in assets:
+            if survey:
+                _path = f"{path}/{cname}"
+                file_data = FileUtility.survey_asset_files(_path)
+            self.unmanaged_intake(cname, file_data)
     
   # Intake Helpers
     def label_id_with_insert(self, cname: str) -> str:
@@ -182,92 +185,3 @@ class Build(Catalog):
         for _j in self.gather_json(path):
             self.managed_intake_from_survey_json(_j)
     
-            
-
-
-
-
-'''
-class Build(App):
-    """
-    Build allows for the creation of a catalog database for pre-existing assets
-            without having to process each through the standard intake process.
-    Build assumes all asserts are normalized and surveyed by AsyncSurvey.
-    """
-    def __init__(self, sonicat_path: str, app_key: str) -> None:
-        super().__init__(sonicat_path, app_key)
-        self.db = CatalogInterface(f"{self.cfg.data}/{self.cfg.moniker}.sqlite")
-        self.log = Logs.initialize_logging(self.cfg)
-        self.log.info("Catalog Build application initialized.")
-    
-    def update_labels(self) -> bool:
-        names_in_dirs = FileUtility.collect_labels(self.cfg.root)
-        if not all([len(names_in_dirs[_k]) <= 1
-                    for _k in names_in_dirs.keys()]):
-            raise RuntimeError("Normalize catalog prior to updating database.")
-        known_label_dirs = self.db.all_label_dirs()
-        for label_dir in names_in_dirs.keys():
-            if not names_in_dirs[label_dir]:
-                continue
-            if not label_dir in known_label_dirs:
-                label_name = names_in_dirs[label_dir][0]
-                self.inventory.db.new_label(label_name, label_dir)
-                self.log.info(f"New label inserted: {label_name}")
-        return True
-    
-    def update_label_assets(self, label_dir: str) -> bool:
-        label_id = self.inventory.db.label_id_by_dirname(label_dir)
-        found_assets = FileUtility .get_canonical_assets(f"{self.cfg.root}/{label_dir}")
-        known_assets = self.inventory.db.label_assets_by_cname(label_id)
-        for asset in found_assets:
-            cname = asset.replace(".rar", "")
-            if not cname in known_assets:
-                self.inventory.db.new_asset(cname, label_id, 1, finalize=False)
-                asset_id = self.inventory.db.asset_id(cname)
-                json_path = f"{self.cfg.data}/csv-survey/{label_dir}/{cname}.json"
-                self.add_asset_files_from_survey_json(asset_id, json_path)
-                self.inventory.db.commit()
-                self.log.info(f"New asset inserted: {label_dir}/{cname}")
-        return True
-
-
-    def add_asset_files_from_survey_json(self, asset_id: int, 
-                                               json_path: str
-                                               ) -> bool:
-        filetype_cache = {}
-        file_data = self.read_asset_file_data_json(json_path)
-        for file_path in file_data.keys():
-            if file_data[file_path]["dirname"].startswith("/"):
-                _dirname = file_data[file_path]["dirname"][1:]
-            else:
-                _dirname = file_data[file_path]["dirname"]
-            if file_data[file_path]["basename"].startswith("/"):
-                _basename = file_data[file_path]["basename"][1:]
-            else:
-                _basename = file_data[file_path]["basename"]
-            ext = file_data[file_path]["filetype"]
-            if not ext in filetype_cache.keys():
-                if not self.inventory.db.filetype_exists(ext):
-                    self.inventory.db.new_filetype(ext)
-                filetype_cache[ext] = self.inventory.db.filetype_id(ext)
-            self.inventory.db.new_file(asset=asset_id, 
-                                       basename=_basename,
-                                       dirname=_dirname,
-                                       size=file_data[file_path]["size"],
-                                       filetype=filetype_cache[ext],
-                                       finalize=False)
-        return True
-            
-
-    def run(self) -> bool:
-        self.log.info("Updating labels in catalog.")
-        self.update_labels()
-        label_dirs = self.inventory.db.all_label_dirs()
-        for _dir in label_dirs:
-            self.log.info(f"Updating assets in label directory: {_dir}")
-            self.update_label_assets(_dir)
-        #self.log.info("Labels and assets updated but not inventoried.")
-        return True
-
-'''
-

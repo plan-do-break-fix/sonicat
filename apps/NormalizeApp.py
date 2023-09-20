@@ -3,10 +3,9 @@
 import shutil
 from util.FileUtility import FileUtility as files
 from util.Logs import StdOutLogger
-from util.NameUtility import Transform, Validate
+from util.NameUtility import NameUtility
 
-from apps.ConfiguredApp import App
-from apps.Helpers import Config
+from apps.ConfiguredApp import App, Config
 
 class Interactive(App):
 
@@ -24,7 +23,7 @@ class Interactive(App):
                 inp = int(input("> "))
                 correct_label = names_in_dirs[label_dir][inp]
                 for archive in files.get_canonical_assets(f"{self.cfg.root}/{label_dir}"):
-                    label, title, note = Transform.divide_cname(archive)
+                    label, title, note = NameUtility.divide_cname(archive)
                     if label != correct_label:
                         if note:
                             correct_name = f"{correct_label} - {title} ({note}).rar"
@@ -60,6 +59,6 @@ class CleanUp(App):
     def recover_noncanonical(self, label_path: str, recover_path):
         for asset in [_a for _a in shutil.os.listdir(label_path)
                      if _a.endswith(".rar")
-                     and not Validate.name_is_canonical(_a.replace(".rar", ""))
+                     and not NameUtility.name_is_canonical(_a.replace(".rar", ""))
                      ]:
             shutil.move(f"{label_path}/{asset}", recover_path)

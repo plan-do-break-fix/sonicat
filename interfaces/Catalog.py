@@ -154,6 +154,19 @@ class CatalogInterface(DatabaseInterface):
         self.c.execute("SELECT id FROM asset WHERE name = ?;", (cname,))
         return self.c.fetchone()[0]
 
+    def asset_ids_by_label(self, label_id: str) -> List[str]:
+        self.c.execute("SELECT id FROM asset WHERE label = ?;", (label_id,))
+        return self.c.fetchall()
+
+    def asset_cnames_by_label(self, label_id: str) -> List[str]:
+        self.c.execute("SELECT cname FROM asset WHERE label = ?;", (label_id,))
+        return self.c.fetchall()
+
+    def asset_ids_by_collection(self, collection_id: str) -> List[str]:
+        self.c.execute("SELECT asset FROM collectionmembers WHERE collection = ?;",
+                       (collection_id,))
+        return self.c.fetchall()
+        
     def filetype_id(self, ext: str) -> str:
         self.c.execute("SELECT id FROM filetype WHERE name = ?;", (ext.lower(),))
         return self.c.fetchone()[0]
@@ -186,11 +199,6 @@ class CatalogInterface(DatabaseInterface):
 
     def collection_id(self, collection_id: str) -> str:
         self.c.execute("SELECT id FROM collection WHERE name = ?;",
-                       (collection_id,))
-        return self.c.fetchone()[0]
-        
-    def asset_ids_by_collection(self, collection_id: str) -> List[str]:
-        self.c.execute("SELECT asset FROM collectionmembers WHERE collection = ?;",
                        (collection_id,))
         return self.c.fetchone()[0]
         

@@ -1,15 +1,28 @@
 import pytest
 
-from util.NameUtility import Validate, Transform
+from util.NameUtility import NameUtility, Variations
 
 
 @pytest.fixture
-def validate():
-    return Validate()
+def utility():
+    return NameUtility()
 
 @pytest.fixture
-def transform():
-    return Transform()
+def variations():
+    return Variations()
+
+@pytest.mark.parametrize(
+    "input, expected",
+    [
+        ("MSXII Sound - Lofi Jazz Guitar 2", "msxii_sound"),
+        ("Past to Future Samples - 12-Bit Hip-Hop Drums", "past_to_future_samples"),
+        ("789ten - The Jaxx & Vega Ultimate Big Room Pack 1", "789ten"),
+        ("Splice Sounds - Unmüte - Cosmos", "splice_sounds"),
+        ("Splice Sounds - VÉRITÉ - New Noise Sample Pack", "splice_sounds"),
+    ]
+)
+def test_pub_dir_from_cname(input, expected, utility):
+    assert utility.pub_dir_from_cname(input) == expected
 
 
 @pytest.mark.parametrize(
@@ -27,8 +40,8 @@ def transform():
         ("Gothic Storm Music", False),
     ]
 )
-def test_name_is_canonical(input, expected, validate):
-    assert validate.name_is_canonical(input) == expected
+def test_name_is_canonical(input, expected, utility):
+    assert utility.name_is_canonical(input) == expected
 
 
 
@@ -40,8 +53,8 @@ def test_name_is_canonical(input, expected, validate):
         ("Cymatics - Gems 14 - Lofi", ["cymatics", "gems", "14", "lofi"])
     ]
 )
-def test_tokenize(input, expected, transform):
-    assert transform.tokenize(input) == expected
+def test_tokenize(input, expected, variations):
+    assert variations.tokenize(input) == expected
 
 
 @pytest.mark.parametrize(
@@ -53,8 +66,8 @@ def test_tokenize(input, expected, transform):
                                               "cymatics-gems-14-lofi"])
     ]
 )
-def test_join_tokens(input, expected, transform):
-    assert transform.join_tokens(input) == expected
+def test_join_tokens(input, expected, variations):
+    assert variations.join_tokens(input) == expected
 
 
 
@@ -74,8 +87,8 @@ def test_join_tokens(input, expected, transform):
 
     ]
 )
-def test_name_variations(input, expected, transform):
-    result = transform.name_variations(input)
+def test_name_variations(input, expected, variations):
+    result = variations.name_variations(input)
     result.sort(), expected.sort()
     assert result == expected
 
@@ -95,8 +108,8 @@ def test_name_variations(input, expected, transform):
         )
     ]
 )
-def test_name_forms(input, expected, transform):
-    result = transform.name_forms(input)
+def test_name_forms(input, expected, variations):
+    result = variations.name_forms(input)
     result.sort(), expected.sort()
     assert result == expected
 

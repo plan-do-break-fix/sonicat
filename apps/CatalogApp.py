@@ -202,7 +202,8 @@ class Build(Catalog):
 
     def __init__(self, sonicat_path: str, app_key: str) -> None:
         super().__init__(sonicat_path, app_key)
-        self.db = CatalogInterface(f"{self.cfg.data}/{self.cfg.moniker}.sqlite")
+        self.log.setLevel(Logs.LOOKUP["info"])
+        self.log.info("CATALOG BUILD MODE")
 
     def read_asset_survey_json(self, path: str) -> bool:
         with closing(open(path, "r")) as _f:
@@ -216,15 +217,21 @@ class Build(Catalog):
         asset_id = self.db.asset_id(cname)
         self.insert_asset_files(asset_id, file_data)
         self.db.commit()
+        self.log.info(f"New asset inserted: {cname}")
         return True
 
     def gather_json(self, path: str):
-        return [f"{_r}/{_f}"
-                for (_r, _, _f) in shutil.os.walk(path)
-                if _f.endswith(".json")
-                ]
+        out = []
+        for (_r, _, _fl) in shutil.os.walk(path):
+            _json = [_f for _f in _fl if _f.endswith(".json")]
+            out += _json
+        return out
 
     def run(self, path: str):
+        self.log.info(f"Begin database build for {self.cfg.name}")
+        total, current = len(self.gather_json(path), 0)
         for _j in self.gather_json(path):
+            current += 1
+            print(f"Running job {current}/{total}")
             self.managed_intake_from_survey_json(_j)
-    
+        self.log.info("End database build: Success")

@@ -16,7 +16,7 @@ DOMAIN_STOPWORDS = [
                     ]
 
 
-class Validate:
+class NameUtility:
 
     @staticmethod
     def name_is_canonical(name: str) -> bool:
@@ -33,19 +33,31 @@ class Validate:
                     ])
             ])
 
-
-class Transform:
-
     @staticmethod
     def divide_cname(cname: str) -> Tuple[str]:
-        cname = cname.replace(".rar", "")
+        """
+        Return tuple of Label, Title and Note components of a canonical name.
+        Input can be asset root directory name or name of asset archive file.
+        """
+        if cname.endswith(".rar"):
+            cname = cname.replace(".rar", "")
         parts = cname.split(" - ")
         label, title = parts[0], " - ".join(parts[1:])
-        if " (" in title:
+        if " (" in title and title.endswith(")"):
             note = title.split(" (")[-1][:-1]
         else:
             note = ""
         return (label, title, note)
+
+    @staticmethod
+    def label_dir_from_cname(cname: str) -> str:
+        """
+        Return the name of the label directory associated with a canonically-named asset.
+        """
+        return cname.split(" - ")[0].lower().replace(" ", "_")
+
+
+class Variations(NameUtility):
 
     def name_variations(self, name: str) -> List[str]:
         if " - " in name:
@@ -55,7 +67,7 @@ class Transform:
         else:
             names = [name]
         alt_spaces = [_a for _alts in
-                       [self.add_allowed_spaces(_n)
+                       [self.insert_optional_spaces(_n)
                        for _n in names]
                        for _a in _alts]
         stripped = [_a for _alts in
@@ -74,7 +86,7 @@ class Transform:
             forms += self.join_tokens(self.tokenize(_v))
         return forms
     
-    def add_allowed_spaces(self, name: str) -> str:
+    def insert_optional_spaces(self, name: str) -> str:
         allowed = [("drumkit", "drum kit"),
                    ("hiphop", "hip hop"),
                    ("lofi", "lo fi")

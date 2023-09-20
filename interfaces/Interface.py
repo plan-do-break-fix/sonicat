@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 
-# Abstract base classes for external system interfaces
-# JDSwan 2023.05.20
+# Abstract base classes for application interfaces
 
 
 

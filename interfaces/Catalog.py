@@ -212,6 +212,7 @@ class CatalogInterface(DatabaseInterface):
         return bool(self.c.fetchone())
 
   #Data Getter Methods
+    #Asset Data
     def asset_cname(self, asset_id: str) -> str:
         self.c.execute("SELECT name FROM asset WHERE id = ?;",
                        (asset_id,))
@@ -229,7 +230,8 @@ class CatalogInterface(DatabaseInterface):
             "year": result[4],
             "cover": result[5]
         }
-
+    
+    #File Data
     def file_path(self, file_id: str) -> str:
         self.c.execute("SELECT basename, dirname FROM file WHERE id = ?;",
                        (file_id,))
@@ -248,22 +250,28 @@ class CatalogInterface(DatabaseInterface):
             "filetype": result[5],
             "digest": result[6]
         }
+    
+    def asset_files_by_type(self, asset: str, filetype: str) -> List[str]:
+        self.c.execute("SELECT id FROM file WHERE asset = ? and filetype = ?;",
+                       (asset, filetype))
+        return self.c.fetchall()
 
+    # Label Data
     def all_label_dirs(self) -> List[str]:
         self.c.execute("SELECT dirname FROM label")
         return [_i[0] for _i in self.c.fetchall()]
 
-    def label_asset_cnames(self, label_id: int) -> List[str]:
+    def asset_cnames_by_label(self, label_id: int) -> List[str]:
         self.c.execute("SELECT name FROM asset WHERE label = ?;", (label_id,))
         return [_i[0] for _i in self.c.fetchall()]
 
-    def label_asset_ids(self, label_id: int) -> List[str(int)]:
+    def asset_ids_by_label(self, label_id: int) -> List[str(int)]:
         self.c.execute("SELECT id FROM asset WHERE label = ?;", (label_id,))
         return [_i[0] for _i in self.c.fetchall()]
 
-    def all_label_cnames(self) -> List[str]:
-        self.c.execute("SELECT name FROM asset;")
-        return self.c.fetchall()
+    #def all_label_cnames(self) -> List[str]:
+    #    self.c.execute("SELECT name FROM asset;")
+    #    return self.c.fetchall()
   
   # Collection Methods
     def new_collection(self, name: str) -> bool:

@@ -1,11 +1,11 @@
 import pytest
 
-from util.FileUtility import Handler
+from util.FileUtility import FileUtility
 
 
-@pytest.fixture
-def handler():
-    return Handler(log_path="/tmp/testlog.log")
+#@pytest.fixture
+#def file_utility():
+#    return Handler(log_path="/tmp/testlog.log")
 
 
 @pytest.mark.parametrize(
@@ -18,7 +18,8 @@ def handler():
         ("Splice Sounds - VÉRITÉ - New Noise Sample Pack", "splice_sounds"),
     ]
 )
-def test_pub_dir_from_cname(input, expected, handler):
-    assert handler.pub_dir_from_cname(input) == expected
+def test_pub_dir_from_cname(input, expected):
+    assert FileUtility.pub_dir_from_cname(input) == expected
 
 
+  

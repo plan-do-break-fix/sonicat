@@ -16,15 +16,15 @@ class Catalog(App):
     def __init__(self, sonicat_path: str, app_key: str) -> None:
         super().__init__(sonicat_path, app_key)
         self.log = Logs.initialize_logging(self.cfg)
-        self.log.info(f"Begin {self.cfg.name} ({self.cfg.moniker}) application initialization")
+        self.log.info(f"BEGIN {self.cfg.name} ({self.cfg.moniker}) application initialization")
         self.db_path = f"{self.cfg.data}/{self.cfg.moniker}.sqlite"
         self.db = CatalogInterface(self.db_path)
         self.log.debug(f"Connected to database {self.db_path}")
-        self.log.info(f"End application initialization: Success")
+        self.log.info(f"END application initialization: Success")
 
   # Managed Asset Intake
     def managed_intake(self, path: str) -> bool:
-        self.log.info(f"Begin managed intake of {path}")
+        self.log.info(f"BEGIN managed intake of {path}")
         if not self.managed_intake_precheck(path):
             self.log.error(f"Intake Aborted - Precheck Validation Failure")
             return False
@@ -46,11 +46,11 @@ class Catalog(App):
             self.log.error(f"Intake failure during archiving of asset")
             return False
         self.db.commit()
-        self.log.info("End managed intake: Success")
+        self.log.info("END managed intake: Success")
         return True
 
     def managed_intake_precheck(self, path: str) -> bool:
-        self.log.debug("Begin precheck validation")
+        self.log.debug("BEGIN precheck validation")
         if not shutil.os.path.isdir(path):
             self.log.error("Validation Failure - Target not found on FS")
             return False
@@ -61,11 +61,11 @@ class Catalog(App):
         if self.db.asset_exists(cname):
             self.log.warning("Validation Failure - Asset already exists in catalog")
             return False
-        self.debug("End precheck validation: Success")
+        self.debug("END precheck validation: Success")
         return True
     
     def archive_managed_asset(self, cname: str, label_dir: str) -> bool:
-        self.log.debug("Begin archiving asset")
+        self.log.debug("BEGIN archiving asset")
         target = f"{self.cfg.intake}/{cname}"
         store_path = f"{self.cfg.managed_assets}/{label_dir}/"
         if not shutil.os.path.exists(store_path):
@@ -89,7 +89,7 @@ class Catalog(App):
 
   # Unmanaged Asset Intake
     def unmanaged_intake(self, cname: str, file_data={}) -> bool:
-        self.log.info(f"Begin unmanaged intake of {cname}")
+        self.log.info(f"BEGIN unmanaged intake of {cname}")
         label_id = self.label_id_with_insert(cname)
         self.db.new_asset(cname, label_id, managed=0)
         if file_data:
@@ -100,7 +100,7 @@ class Catalog(App):
         else:
             self.log.debug("Inserting asset without files")
         self.db.commit()
-        self.log.info("End unmanaged intake: Success")
+        self.log.info("END unmanaged intake: Success")
         return True
 
     def unmanaged_batch_intake(self, path: str, survey=False) -> None:
@@ -144,7 +144,7 @@ class Catalog(App):
     
   # Export
     def export_asset(self, cname: str) -> bool:
-        self.log.info(f"Begin export of {cname}")
+        self.log.info(f"BEGIN export of {cname}")
         if not self.export_precheck(cname):
             self.log.error(f"Export Aborted - Precheck Validation Failed")
             return False
@@ -157,7 +157,7 @@ class Catalog(App):
         self.log.info(f"Asset exported to {self.cfg.export}")
         shutil.rmtree(f"{self.cfg.temp}/{cname}.rar")
         self.debug.log(f"Asset archive removed from {self.cfg.temp}")
-        self.log.info("End asset export: Success")
+        self.log.info("END asset export: Success")
         return True
 
     def export_precheck(self, cname) -> bool:
@@ -184,7 +184,29 @@ class Catalog(App):
 
   # Validate
     def check_database(self) -> bool:
+        if not all(self.check_coverage()
+                   ):
+            return False
         return True
+        
+    def check_coverage(self) -> bool:
+        found_labels = list(FileUtility.collect_labels(self.cfg.managed).keys())
+        expected_labels = self.db.all_label_dirs()
+        found_labels.sort(), expected_labels.sort()
+        if not found_labels == expected_labels:
+            #TODO - produce an actionable summary
+            return False
+        for _label in found_labels:
+            found_assets = FileUtility.get_canonical_assets(f"{self.cfg.managed}/{_label}/")
+            expected_assets = self.db.asset_cnames_by_label(
+                                  self.db.label_id_by_dirname(_label)
+                                  )
+            found_assets.sort(), expected_assets.sort()
+            if not found_assets == expected_assets:
+                #TODO - produce an actionable summary
+                return False
+        return True
+
 
     def export_database(self) -> bool:
         if not self.check_database():
@@ -228,10 +250,16 @@ class Build(Catalog):
         return out
 
     def run(self, path: str):
-        self.log.info(f"Begin database build for {self.cfg.name}")
+        self.log.info(f"BEGIN database build for {self.cfg.name}")
         total, current = len(self.gather_json(path), 0)
         for _j in self.gather_json(path):
             current += 1
             print(f"Running job {current}/{total}")
             self.managed_intake_from_survey_json(_j)
-        self.log.info("End database build: Success")
+        self.log.info("Database build complete")
+        self.log.info("BEGIN database validation")
+        if not self.check_database():
+            self.log.error("Database validation failed")
+            raise ResourceWarning()
+        self.log.info("END database validation: Success")
+        self.log.info("END database build: Success")

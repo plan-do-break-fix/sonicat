@@ -239,7 +239,7 @@ class Catalog(App):
             self.print_crosscheck_report(list_a, list_b)
             return False
 
-    def print_crosscheck_report(sel, list_a, list_b):
+    def print_crosscheck_report(self, list_a, list_b):
         unique_in_a = [_i for _i in list_a if _i not in list_b]
         unique_in_b = [_i for _i in list_b if _i not in list_a]
         print(f"{len(unique_in_a)} items in list 1 not found in list 2:")

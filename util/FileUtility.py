@@ -6,7 +6,7 @@
 from contextlib import closing
 from hashlib import blake2b
 import shutil
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from util.NameUtility import NameUtility
 
@@ -63,21 +63,23 @@ class FileUtility:
                 }
         return file_data
 
-    @staticmethod
-    def move_asset(target: str, destination: str):
-        if not all([shutil.os.path.exists(target),
-                    shutil.os.path.exists(destination)]):
-            raise ValueError
-        shutil.move(target, destination)
-        return True
+    #@staticmethod
+    #def move_asset(target: str, destination: str) -> bool:
+    #    if not all([any([shutil.os.path.isfile(target),
+    #                    shutil.os.path.isdir(target)]),
+    #                shutil.os.path.exists(destination)]):
+    #        raise ValueError
+    #    shutil.move(target, destination)
+    #    return True
     
-    @staticmethod
-    def copy_asset(target: str, destination: str):
-        if not all([shutil.os.path.exists(target),
-                    shutil.os.path.exists(destination)]):
-            raise ValueError
-        shutil.copyfile(target, destination)
-        return True
+    #@staticmethod
+    #def copy_asset(target: str, destination: str) -> bool:
+    #    if not all([any([shutil.os.path.isfile(target),
+    #                    shutil.os.path.isdir(target)]),
+    #                shutil.os.path.exists(destination)]):
+    #        raise ValueError
+    #    shutil.copyfile(target, destination)
+    #    return True
 
 
 import subprocess
@@ -90,6 +92,7 @@ class Archive:
         Create rar archive of <path> in same directory and with same basename.
         """
         if not shutil.os.path.isdir(path):
+            print("Unable to find {path}")
             raise ValueError
         if path.endswith("/"):
             path = path[:-1]
@@ -115,3 +118,36 @@ class Archive:
                        stderr=subprocess.STDOUT
                        )
         return True
+
+
+
+from yaml import load, SafeLoader
+
+class Cleanse:
+
+    def __init__(self, blacklist_yaml: str) -> None:
+        with closing(open(blacklist_yaml, "r")) as _f:
+            data = load(_f.read(), SafeLoader)
+        self.ban = {"fname": data["basename"],
+                    "dname": data["dirname"]}
+        
+
+    def ban_list(self, path) -> Tuple[str]:
+        ban_dirs, ban_files = [], []
+        for _r, _dlist, _flist in shutil.os.walk(path):
+            for _dname in _dlist:
+                if _dname.lower() in self.ban["dname"]:
+                    ban_dirs.append(f"{_r}/{_dname}")
+            for _fname in _flist:
+                if _fname.lower() in self.ban["fname"]:
+                    ban_files.append(f"{_r}/{_fname}")
+        ban_dirs = [_l.replace("//", "/") for _l in ban_dirs]
+        ban_files = [_l.replace("//", "/") for _l in ban_files]
+        for _d in ban_dirs:
+            ban_files = [_f for _f in ban_files if not _f.startswith(_d)]
+        return (ban_dirs, ban_files)
+
+
+    def remediate_file_ext(self, ext: str) -> str:
+        return ext.lower() if ext == ext.upper() else ext
+            

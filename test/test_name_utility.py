@@ -22,7 +22,7 @@ def variations():
     ]
 )
 def test_pub_dir_from_cname(input, expected, utility):
-    assert utility.pub_dir_from_cname(input) == expected
+    assert utility.label_dir_from_cname(input) == expected
 
 
 @pytest.mark.parametrize(

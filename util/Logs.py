@@ -11,12 +11,12 @@ LOOKUP = {
 }
 
 def initialize_logging(config: Config) -> logging.Logger:
-    logger = logging.getLogger(config.app_name)
+    logger = logging.getLogger(config.name)
     logger.setLevel(LOOKUP[config.log_level])
     date_str = datetime.now().strftime('%Y-%m-%d')
-    log_path = f"{config.log}/{date_str}-{config.moniker}.log"
+    log_path = f"{config.log}/{date_str}-{config.name}.log"
     fh = logging.FileHandler(log_path)
-    FORMAT = "%(asctime)s | %(name)10s | %(levelname)5s | %(message)s"
+    FORMAT = "%(asctime)s | %(name)10s | %(levelname)8s | %(message)s"
     formatter = logging.Formatter(FORMAT)
     fh.setFormatter(formatter)
     logger.addHandler(fh)

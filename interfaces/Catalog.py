@@ -21,12 +21,12 @@ CREATE TABLE IF NOT EXISTS file (
     asset integer NOT NULL,
     basename text NOT NULL,
     dirname text NOT NULL,
-    size integer NOT NULL,
-    filetype integer NOT NULL,
+    size integer,
+    filetype integer,
     digest text,
     FOREIGN KEY (asset)
-      REFERENCES asset (id),
-      ON DELETE CASCADE
+      REFERENCES asset (id)
+      ON DELETE CASCADE,
     FOREIGN KEY (filetype)
       REFERENCES file_type (id)
 );
@@ -51,8 +51,8 @@ CREATE TABLE IF NOT EXISTS members (
     collection integer NOT NULL,
     ordinal integer,
     FOREIGN KEY (asset)
-      REFERENCES asset (id),
-      ON DELETE CASCADE
+      REFERENCES asset (id)
+      ON DELETE CASCADE,
     FOREIGN KEY (collection)
       REFERENCES collection (id)
       ON DELETE CASCADE
@@ -104,6 +104,20 @@ class CatalogInterface(DatabaseInterface):
         INSERT INTO file (asset, basename, dirname, size, filetype)
         VALUES (?,?,?,?,?)
         ;""", (asset_id, basename, dirname, size, filetype))
+        if finalize:
+            self.db.commit()
+        return True
+    
+    def new_extensionless_file(self, asset_id: int,
+                       basename: str,
+                       dirname: str,
+                       size: int,
+                       finalize=False
+                       ) -> bool:
+        self.c.execute("""
+        INSERT INTO file (asset, basename, dirname, size)
+        VALUES (?,?,?,?)
+        ;""", (asset_id, basename, dirname, size))
         if finalize:
             self.db.commit()
         return True
@@ -273,7 +287,7 @@ class CatalogInterface(DatabaseInterface):
         self.c.execute("SELECT name FROM asset WHERE label = ?;", (label_id,))
         return [_i[0] for _i in self.c.fetchall()]
 
-    def asset_ids_by_label(self, label_id: int) -> List[str(int)]:
+    def asset_ids_by_label(self, label_id: int) -> List[str]:
         self.c.execute("SELECT id FROM asset WHERE label = ?;", (label_id,))
         return [_i[0] for _i in self.c.fetchall()]
 

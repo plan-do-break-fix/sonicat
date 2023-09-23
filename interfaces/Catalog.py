@@ -1,5 +1,4 @@
-import shutil
-import sqlite3
+
 from typing import Dict, List
 
 from interfaces.Interface import DatabaseInterface

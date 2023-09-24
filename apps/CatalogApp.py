@@ -15,13 +15,14 @@ class Catalog(App):
 
     def __init__(self, sonicat_path: str, app_key: str) -> None:
         super().__init__(sonicat_path, app_key)
+        self.cfg.log += "/catalog"
         self.log = Logs.initialize_logging(self.cfg)
         self.log.info(f"BEGIN {self.cfg.name} application initialization")
-        self.cln = Cleanse(f"{sonicat_path}/catalog/file-blacklist.yaml")
+        self.cln = Cleanse(f"{sonicat_path}/config/file-blacklist.yaml")
         if shutil.os.path.exists(self.cfg.temp):
             shutil.rmtree(self.cfg.temp)
         shutil.os.mkdir(self.cfg.temp)   #TODO This probably should be mkdirs
-        self.db_path = f"{self.cfg.data}/{self.cfg.name}.sqlite"
+        self.db_path = f"{self.cfg.data}/catalog/{self.cfg.name}.sqlite"
         self.db = CatalogInterface(self.db_path)
         self.log.debug(f"Connected to database {self.db_path}")
         self.log.info(f"END application initialization: Success")
@@ -41,7 +42,6 @@ class Catalog(App):
         for _f in ban_files:
             self.log.debug(f"Removing {_f}")
             shutil.os.remove(_f)
-        #cname = path.split("/")[-1]
         label_id = self.label_id_with_insert(cname)
         file_data = FileUtility.survey_asset_files(path)
         if not file_data:
@@ -98,7 +98,6 @@ class Catalog(App):
         assets = FileUtility.get_canonical_assets(path)
         self.log.info(f"{len(assets)} assets found for managed batch intake.")
         for asset in assets:
-            #asset_path = f"{path}/{asset}"
             self.managed_intake(asset)
 
   # Unmanaged Asset Intake
@@ -268,7 +267,6 @@ class Build(Catalog):
 
     def load_blacklist(self, sonicat_path: str) -> dict:
         with closing(open(f"{sonicat_path}/catalog/file-blacklist.yaml", "r")) as _f:
-            #self.cfg = Config(**load(_f.read(), SafeLoader))
             return load(_f.read(), SafeLoader)
 
     def read_asset_survey_json(self, path: str) -> bool:

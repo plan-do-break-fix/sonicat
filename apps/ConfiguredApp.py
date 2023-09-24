@@ -1,7 +1,6 @@
 
 from contextlib import closing
 from dataclasses import dataclass
-import shutil
 from yaml import load, SafeLoader
 
 
@@ -25,16 +24,16 @@ class Config:
 class App:
 
     def __init__(self, sonicat_path: str, app_key: str) -> None:
-        with closing(open(f"{sonicat_path}/catalog/catalog-config.yaml", "r")) as _f:
+        with closing(open(f"{sonicat_path}/config/config.yaml", "r")) as _f:
             #self.cfg = Config(**load(_f.read(), SafeLoader))
             params = load(_f.read(), SafeLoader)[app_key]
         config = {
             "name": params["moniker"],
             "app_key": app_key,
             "log_level": params["log_level"],
-            "data": f"{sonicat_path}/catalog/data",
+            "data": f"{sonicat_path}/data",
             "managed": params["path"]["managed"],
-            "log": f"{sonicat_path}/catalog/log",
+            "log": f"{sonicat_path}/log",
             "intake": params["path"]["intake"],
             "export": params["path"]["export"],
             "temp": f"/tmp/sonicat-{app_key}"

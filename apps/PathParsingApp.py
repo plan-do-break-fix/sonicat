@@ -48,7 +48,7 @@ class Interface(DatabaseInterface):
         parse_id = self.c.fetchone()[0]
         if bpm:
             self.c.execute("UPDATE data SET bpm = ? WHERE id = ?;",
-                           (key, parse_id))
+                           (bpm, parse_id))
         if key:
             self.c.execute("UPDATE data SET key = ? WHERE id = ?;",
                            (key, parse_id))

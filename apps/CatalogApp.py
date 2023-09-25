@@ -185,10 +185,11 @@ class Catalog(App):
             return False
         return True
         
-    def export_database(self) -> bool:
+    def export_database(self, out_path) -> bool:
         if not self.check_database():
             raise RuntimeWarning
-        shutil.copyfile(self.db_path, self.cfg.export)
+        out_path = self.cfg.export if not out_path else out_path
+        shutil.copyfile(self.db_path, out_path)
         return True
 
   # Purge

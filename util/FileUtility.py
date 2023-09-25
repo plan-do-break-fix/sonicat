@@ -59,9 +59,20 @@ class FileUtility:
                     "basename": basename,
                     "dirname": dirname,
                     "size": shutil.os.path.getsize(fpath),
-                    "filetype": basename.split(".")[-1]
+                    "filetype": FileUtility.file_extension(basename)
                 }
         return file_data
+    
+    @staticmethod
+    def file_extension(fname: str) -> str:
+        ext = fname.split(".")[-1]
+        if any([ext == "",
+                ext == fname,
+                " " in ext,
+                any([f"{_p}{ext}" == fname for _p in [".", "_.", "._."]])
+                    ]):
+            return ""
+        return ext
 
     #@staticmethod
     #def move_asset(target: str, destination: str) -> bool:

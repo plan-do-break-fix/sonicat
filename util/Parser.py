@@ -6,13 +6,10 @@ from typing import List, Tuple
 from util.NameUtility import NameUtility
 
 REGEX_VERSION = r"(?<=v)(\d+\.)+(?=\b)"
-#REGEX_RAW_KEY = r"(?<=\b)[a-gA-G](b|#)? ?(m|[mM][iI][nN]([oO][rR])?|[mM][aA][jJ]([oO][rR])?)?(?=\b)"  # matches common forms of key signatures
-REGEX_RAW_KEY = r"(?<=\b)[a-g] ?(b|#|sharp|flat)? ?(m(in|aj)?)?(or)?(?=\b)"
-#REGEX_KEY = r"[A-G](b|#)?(maj|min)?"                                # matches canonical key signature
-REGEX_RAW_TEMPO_POSTFIX = r"(\d{2,3}( )?bpm)"                    # matches common formats of labelled tempos
+REGEX_RAW_KEY = r"(?<=\b)[a-g] ?(b|#|sharp|flat)? ?(m(in|aj)?)?(or)?([2-7])?(?=(\s|\.|$))"
+REGEX_RAW_TEMPO_POSTFIX = r"(\d{2,3}( )?bpm)"                           # matches common formats of labelled tempos
 REGEX_RAW_TEMPO_PREFIX = r"(bpm ?\d{2,3}(?=\b))"                        # matches inverse formats of labelled tempos
 REGEX_RAW_TEMPO_NO_LABEL = r"(?<=\b)(\d{2,3})(?=\b)"
-#REGEX_TEMPO = r"\d{2,3}(?<=bpm)"                                    # matches canonical tempos
 RANGE_TEMPO_1 = (80, 140)
 RANGE_TEMPO_2 = (60, 180)
 RANGE_TEMPO_3 = (40, 240)
@@ -33,32 +30,20 @@ SPACE_ALTS = [
 DROP_CHARS = [
     "'", "\"", "!", "?"
 ]
-FORMATS = [
-    "composition",
-    "construction kit",
-    "loop",
-    "one-shot",
-    "song-starter",
-    "stem"
-]
-INSTRUMENTS = {
-    "drum": ["808", "perc", "snare", "kick", "tom", "hihat", "cymbal", "break", "snap", "clap", "crash"],
-    "synth": ["pad", "lead"],
-    "guitar": ["strum"],
-    "bass": ["pluck"]
-}
+
 SUBSTITUTIONS = {
-    #"drumkit": ["drum kit"],
-    "hi-hat": ["hi hat", "hh"],
-    "hip-hop": ["hiphop", "hip hop"],
+    "drumkit": ["drum kit"],
+    "loopkit": ["loop kit"],
+    "hihat": ["hi hat", "hh"],
+    "hiphop": ["hip hop"],
     "lofi": ["lo fi"],
-    "one-shot": ["oneshot", "one shot"]
+    "oneshot": ["one shot"]
 }
 KEY_SUBSTITUTIONS = {
     "sharp": "#",
     "flat": "b",
     "or": "",
-    r"m$": "min"
+    r"m($|[2-7])": "min"
 }
 
 @dataclass
@@ -68,15 +53,6 @@ class ParsedAudioFilePath:
     tempo: str
     tokens: List[str]
 
-    #def append(self, target) -> bool:
-    #    self.path += "/" if not self.path.endswith("/") else ""
-    #    self.path += target.path
-    #    if target.key:
-    #        self.key = target.key
-    #    if target.tempo:
-    #        self.tempo = target.tempo
-    #    return True
-
 
 class AudioFilePathParser:
 
@@ -85,19 +61,8 @@ class AudioFilePathParser:
         self.cache = {}
         self.acronyms = []
 
-    #def parse_audio_file_paths(self, cname: str, paths: List[str]) -> List[ParsedAudioFilePath]:
-    #    self.acronyms = self.asset_acronyms(cname)
-    #    self.cache, result = {}, []
-    #    for path in paths:
-    #        if path.split(".")[-1].lower() not in self.targets:
-    #            continue
-    #        result.append(self.parse_path(cname, path))
-    #    return result
-
     def parse_path(self, path: str) -> ParsedAudioFilePath:
-        #if path.startswith("/"):
-        #    path = path[1:]
-        path = self.trim(path)
+        path = self.trim(path.lower())
         space_normal_path = self.normal_spaces(path)
         raw_tempo, tempo = self.parse_tempo(space_normal_path)
         raw_key, key_sig = self.parse_key_signature(space_normal_path)
@@ -109,7 +74,6 @@ class AudioFilePathParser:
                                    key=key_sig,
                                    tempo=tempo,
                                    tokens=tokens)
-
 
     def normal_spaces(self, path: str) -> str:
         for _d in SPACE_ALTS:
@@ -125,9 +89,6 @@ class AudioFilePathParser:
         if "/" in path:
             path = "/".join(path.split("/")[1:])
         return path
-
-    #def segment(self, path: str) -> List[str]:
-    #    return [_i for _i in path.split("/") if _i]
 
     def cleanse(self, path: str) -> str:
         for _c in DROP_CHARS:
@@ -206,18 +167,6 @@ class AudioFilePathParser:
         raw_tempo = candidates[indexed_tempos[0][0]]
         normal_tempo = str(indexed_tempos[0][1])
         return (raw_tempo, normal_tempo)
-
-    #def tokenize(self, path_segments: List[str]) -> List[str]:
-    #    tokens = []
-    #    for segment in path_segments:
-    #        if segment in self.cache.keys():
-    #            tokens += self.cache[segment]
-    #            continue
-    #        else:
-    #            segment_tokens = segment.split(" ")
-    #            tokens += segment_tokens
-    #            self.cache[segment] = segment_tokens
-    #    return tokens
 
     def asset_acronyms(self, cname: str) -> List[str]:
         label, title, _ = NameUtility.divide_cname(cname)

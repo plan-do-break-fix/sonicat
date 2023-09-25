@@ -179,6 +179,16 @@ class CatalogInterface(DatabaseInterface):
         self.c.execute("SELECT asset FROM collectionmembers WHERE collection = ?;",
                        (collection_id,))
         return self.c.fetchall()
+   
+    def all_asset_ids(self, limit=0, excluding=[]) -> List[str]:
+        query_str = "SELECT id FROM asset"
+        if excluding:
+            query_str += f" WHERE id NOT IN ({','.join(excluding)})"
+        if limit > 0:
+            query_str += f" LIMIT {limit}"
+        query_str += ";"
+        self.c.execute(query_str)
+        return [_i[0] for _i in self.c.fetchall()]
         
     def filetype_id(self, ext: str) -> str:
         self.c.execute("SELECT id FROM filetype WHERE name = ?;", (ext.lower(),))
@@ -198,23 +208,23 @@ class CatalogInterface(DatabaseInterface):
         return self.c.fetchone()[0]
     
     def file_ids_by_asset(self, asset_id: str) -> List[str]:
-        self.c.execute("SELECT id FROM file WHERE asset_id = ?;", (asset_id,))
-        return self.c.fetchall()
+        self.c.execute("SELECT id FROM file WHERE asset = ?;", (asset_id,))
+        return [_i[0] for _i in self.c.fetchall()]
 
     def file_ids_by_asset_and_type(self, asset_id: str, filetype_id: str) -> List[str]:
         self.c.execute("SELECT id FROM file WHERE asset = ? and filetype = ?;",
                        (asset_id, filetype_id))
-        return self.c.fetchall()
+        return [_i[0] for _i in self.c.fetchall()]
 
     def file_ids_by_digest(self, digest: str) -> List[str]:
         self.c.execute("SELECT id FROM file WHERE digest = ?;", (digest,))
-        return self.c.fetchall()
+        return [_i[0] for _i in self.c.fetchall()]
 
-    def collection_id(self, collection_id: str) -> str:
+    def collection_id(self, collection_name: str) -> str:
         self.c.execute("SELECT id FROM collection WHERE name = ?;",
-                       (collection_id,))
+                       (collection_name,))
         return self.c.fetchone()[0]
-        
+         
   #Boolean Check Methods
     def asset_exists(self, cname: str) -> bool:
         self.c.execute("SELECT * FROM asset WHERE name = ?;", (cname,))
@@ -256,12 +266,12 @@ class CatalogInterface(DatabaseInterface):
     def file_path(self, file_id: str) -> str:
         self.c.execute("SELECT basename, dirname FROM file WHERE id = ?;",
                        (file_id,))
-        result = self.c.fetchall()
+        result = self.c.fetchone()
         return f"{result[1]}/{result[0]}"
 
     def file_data(self, file_id: int) -> Dict:
         self.c.execute("SELECT * FROM file WHERE id = ?;", (file_id,))
-        result = self.c.fetchone()[0]
+        result = self.c.fetchone()
         return {
             "id": result[0],
             "asset": result[1],
@@ -277,18 +287,36 @@ class CatalogInterface(DatabaseInterface):
                        (asset, filetype))
         return self.c.fetchall()
 
+    def file_filetype_id(self, file_id: str) -> str:
+        self.c.execute("SELECT filetype FROM file WHERE ID = ?;", (file_id,))
+        return self.c.fetchone()[0]
+
     # Label Data
+    def label(self, label_id: str) -> str:
+        self.c.execute("SELECT name FROM label WHERE id = ?", (label_id,))
+        return self.c.fetchone()[0]
+
+    def label_dir(self, label_id: str) -> str:
+        self.c.execute("SELECT dirname FROM label WHERE id = ?", (label_id,))
+        return self.c.fetchone()[0]
+
     def all_label_dirs(self) -> List[str]:
         self.c.execute("SELECT dirname FROM label")
         return [_i[0] for _i in self.c.fetchall()]
 
-    def asset_cnames_by_label(self, label_id: int) -> List[str]:
+    def asset_cnames_by_label(self, label_id: str) -> List[str]:
         self.c.execute("SELECT name FROM asset WHERE label = ?;", (label_id,))
         return [_i[0] for _i in self.c.fetchall()]
 
-    def asset_ids_by_label(self, label_id: int) -> List[str]:
+    def asset_ids_by_label(self, label_id: str) -> List[str]:
         self.c.execute("SELECT id FROM asset WHERE label = ?;", (label_id,))
         return [_i[0] for _i in self.c.fetchall()]
+
+    # Filetype Data
+    def filetype(self, filetype_id: str) -> str:
+        self.c.execute("SELECT name FROM filetype WHERE id = ?",
+                       (filetype_id,))
+        return self.c.fetchone()[0]
 
     #def all_label_cnames(self) -> List[str]:
     #    self.c.execute("SELECT name FROM asset;")

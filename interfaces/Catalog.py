@@ -189,6 +189,11 @@ class CatalogInterface(DatabaseInterface):
         query_str += ";"
         self.c.execute(query_str)
         return [_i[0] for _i in self.c.fetchall()]
+
+    def asset_ids_from_file_ids(self, file_ids: List[str]) -> List[str]:
+        self.c.execute("SELECT DISTINCT asset FROM files"\
+                       f" WHERE id IN ({','.join(file_ids)});")
+        return [_i[0] for _i in self.c.fetchall()]
         
     def filetype_id(self, ext: str) -> str:
         self.c.execute("SELECT id FROM filetype WHERE name = ?;", (ext.lower(),))

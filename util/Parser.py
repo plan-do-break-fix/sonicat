@@ -13,6 +13,7 @@ REGEX_RAW_TEMPO_NO_LABEL = r"(?<=\b)(\d{2,3})(?=\b)"
 RANGE_TEMPO_1 = (80, 140)
 RANGE_TEMPO_2 = (60, 180)
 RANGE_TEMPO_3 = (40, 240)
+RANGE_TEMPO_4 = (20, 300)
 SPACE_ALTS = [
     "/",
     "_",
@@ -162,10 +163,12 @@ class AudioFilePathParser:
                               if tempo_range[0] <= _n <= tempo_range[1]]
             if len(indexed_tempos) == 1:
                 break
-        if len(indexed_tempos) > 1:
+        if len(indexed_tempos) != 1:
             return ("", "")
         raw_tempo = candidates[indexed_tempos[0][0]]
-        normal_tempo = str(indexed_tempos[0][1])
+        normal_tempo = indexed_tempos[0][1]
+        if (normal_tempo < RANGE_TEMPO_4[0] or normal_tempo > RANGE_TEMPO_4[1]):
+            return ("", "")
         return (raw_tempo, normal_tempo)
 
     def asset_acronyms(self, cname: str) -> List[str]:

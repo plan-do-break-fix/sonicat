@@ -138,13 +138,13 @@ class PathParser(App):
                                           )[0]
 
     def run(self):
-        target_asset_id = self.asset_with_unparsed_files(self.cfg.app_key)
+        target_asset_id = self.asset_with_unparsed_files()
         while target_asset_id:
             cname = self.catalog.asset_cname(target_asset_id)
             self.log.info(f"BEGIN parsing audio file paths in {cname}")
             self.parse_asset_file_paths(target_asset_id)
             self.log.info(f"END asset file path parsing: Success")
-            target_asset_id = self.asset_with_unparsed_files(self.cfg.app_key)
+            target_asset_id = self.asset_with_unparsed_files()
         return True
     
 

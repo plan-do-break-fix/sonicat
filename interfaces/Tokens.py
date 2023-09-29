@@ -47,9 +47,15 @@ class TokensInterface(DatabaseInterface):
                               tokens: List[str],
                               finalize=False
                               ) -> bool:
+        id_cache = {}
         for _token in tokens:
-            token_id = self.token_id_with_insert(_token)
-            self.new_file_token(token_id, file_id, app_key, finalize=False)
+            if _token not in id_cache.keys():
+                id_cache[_token] = self.token_id_with_insert(_token)
+            self.new_file_token(id_cache[_token],
+                                file_id,
+                                app_key,
+                                finalize=False
+                                )
         if finalize:
             self.db.commit()
         return True

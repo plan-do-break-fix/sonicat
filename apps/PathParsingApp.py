@@ -44,14 +44,15 @@ class Interface(DatabaseInterface):
                              ) -> bool:
         self.c.execute("INSERT INTO data (file, catalog) VALUES (?,?);",
                        (file_id, catalog))
-        self.c.execute("SELECT last_insert_rowid();")
-        parse_id = self.c.fetchone()[0]
-        if bpm:
-            self.c.execute("UPDATE data SET bpm = ? WHERE id = ?;",
-                           (bpm, parse_id))
-        if key:
-            self.c.execute("UPDATE data SET key = ? WHERE id = ?;",
-                           (key, parse_id))
+        if bpm or key:
+            self.c.execute("SELECT last_insert_rowid();")
+            parse_id = self.c.fetchone()[0]
+            if bpm:
+                self.c.execute("UPDATE data SET bpm = ? WHERE id = ?;",
+                               (bpm, parse_id))
+            if key:
+                self.c.execute("UPDATE data SET key = ? WHERE id = ?;",
+                               (key, parse_id))
         if finalize:
             self.db.commit()
         return True
@@ -66,15 +67,15 @@ class Interface(DatabaseInterface):
             self.db.commit()
         return True
     
-    def is_file_parsed(self, file_id: str, catalog: str) -> str:
-        self.c.execute("SELECT id FROM data WHERE file = ? and catalog = ?;",
-                       (file_id, catalog))
-        return bool(self.c.fetchone())
+    #def is_file_parsed(self, file_id: str, catalog: str) -> str:
+    #    self.c.execute("SELECT id FROM data WHERE file = ? and catalog = ?;",
+    #                   (file_id, catalog))
+    #    return bool(self.c.fetchone())
     
-    def are_asset_files_parsed(self, asset_id: str, catalog: str) -> bool:
-        self.c.execute("SELECT id FROM log WHERE asset = ?;",
-                       (asset_id, catalog))
-        return bool(self.c.fetchone())
+    #def are_asset_files_parsed(self, asset_id: str, catalog: str) -> bool:
+    #    self.c.execute("SELECT id FROM log WHERE asset = ?;",
+    #                   (asset_id, catalog))
+    #    return bool(self.c.fetchone())
 
     def parsed_asset_ids(self, catalog: str) -> List[str]:
         self.c.execute("SELECT DISTINCT asset FROM log WHERE catalog = ?;",

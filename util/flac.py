@@ -1,11 +1,18 @@
 
-import shutil, subprocess
+import re, shutil, subprocess
 from typing import Dict, List
 
 def cue2dict(path) -> Dict:
     out = {"tracks": {}}
     with open(path, "rb") as _f:
-        lines = [_l.decode("utf-8").strip() for _l in _f.readlines()]
+        for _encoding in ["utf-8", "utf-16", "iso-8859-1", "cp1252", "latin-1", "ascii"]:
+            try:
+                lines = [_l.decode(_encoding).strip() for _l in _f.readlines()]
+                break
+            except UnicodeDecodeError:
+                continue
+    if not lines:
+        raise RuntimeWarning
     for _i, _l in enumerate(lines):
         if _l.startswith("REM DATE"):
             out["year"] = _l.split(" ")[-1]
@@ -79,7 +86,25 @@ def split_flac(path):
     cmd = f"cuebreakpoints \"{cue_path}\" | shnsplit -o wav \"{flac_path}\""
     ps = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
     output = ps.communicate()[0]
-    #print(output)
-    #ps = subprocess.run(["cuebreakpoints", cue_path])
-    #ps = subprocess.run(["cuebreakpoints", cue_path, "|", "shnsplit", "-o", "wav", flac_path])
     return True
+
+def list_flacs(path) -> List[str]:
+    return [f"{path}/{_f}"
+            for _f in shutil.os.listdir(path)
+            if _f.endswith(".flac")
+            ]
+
+def flac2wav(path) -> bool:
+    out_path = re.sub(r"(?<=\.)flac$", "wav", path)
+    subprocess.run(["ffmpeg", "-i", path, out_path])
+    return True
+
+def make_wavs(path) -> bool:
+    for _f in list_flacs(path):
+        flac2wav(_f)
+    return True
+
+def rm_flacs(path) -> bool:
+    for _f in list_flacs(path):
+        shutil.os.remove(_f)
+

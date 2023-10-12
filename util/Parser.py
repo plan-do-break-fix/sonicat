@@ -1,12 +1,12 @@
 
 from dataclasses import dataclass
 import re
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 from util.NameUtility import NameUtility
 
 REGEX_VERSION = r"(?<=v)(\d+\.)+(?=\b)"
-REGEX_RAW_KEY = r"(?<=\b)[a-g] ?(b|#|sharp|flat)? ?(m(in|aj)?)?(or)?([2-7])?(?=(\s|\.|$))"
+REGEX_RAW_KEY = r"(?<=\b)[a-g] ?(b|#|sharp|flat)? ?(m(in|aj)?)?(or)?([2-9])?(b|#)?((sus|dim)[2-9]?)?(?=(\s|\.|$))"
 REGEX_RAW_TEMPO_POSTFIX = r"(\d{2,3}( )?bpm)"                           # matches common formats of labelled tempos
 REGEX_RAW_TEMPO_PREFIX = r"(bpm ?\d{2,3}(?=\b))"                        # matches inverse formats of labelled tempos
 REGEX_RAW_TEMPO_NO_LABEL = r"(?<=\b)(\d{2,3})(?=\b)"
@@ -20,32 +20,107 @@ SPACE_ALTS = [
     "-", "‒", "–", "—", "−",
     "~",
     "=",
+    "+",
     ",",
     ".",
     ":",
+    "|", "︱",
     "(",")",
     "[","]",
     "{","}",
     "<",">"
 ]
 DROP_CHARS = [
-    "'", "\"", "!", "?"
+    "'", "\"", "!", "?", ";", "^", "°", "*", "`", "’", "#"
 ]
+ALPHA_NUM_TRANSITION_REGEX = r"(\d+)" 
 
-SUBSTITUTIONS = {
-    "drumkit": ["drum kit"],
-    "loopkit": ["loop kit"],
+# string subs to be run AFTER space alt subs
+STRING_SUBSTITUTIONS = {
+    #"breakbeat": ["break beat"],
+    #"drumkit": ["drum kit"],
+    #"loopkit": ["loop kit"],
+    "groove": ["grv"],
+    "guitar": ["gtr"],
     "hihat": ["hi hat", "hh"],
     "hiphop": ["hip hop"],
     "lofi": ["lo fi"],
-    "oneshot": ["one shot"]
+    "oneshot": ["one shot"],
+    "": ["&amp", "&quot"]
 }
 KEY_SUBSTITUTIONS = {
     "sharp": "#",
     "flat": "b",
     "or": "",
-    r"m($|[2-7])": "min"
+    "maj": "",
+    r"m($|[2-9])": "min"
 }
+# These are most commonly used in English words for decorative purposes
+CHAR_SUBSTITUTIONS = {
+    "a": ["ä"],
+    "e": ["ë", "é", "ê"],
+    "i": ["ï"],
+    "n": ["ñ"],
+    "o": ["ö"],
+    "s": ["$", "§"],
+    "z": ["ž"] 
+}
+COMPOUND_TOKEN_ENDINGS = [
+    "bass", "basses",
+    "beat", "beats",
+    "brass",
+    "break", "breaks",
+    "chord", "chords",
+    "clap", "claps",
+    "crash", "crashes",
+    "cymbal", "cymbals",
+    "drum", "drums",
+    "effect",
+    "fast",
+    "fill", "fills",
+    "funk",
+    "fx",
+    "groove", "grooves",
+    "guitar", "guitars",
+    "hihat", "hihats",
+    "hat", "hats",
+    "high",
+    "hit", "hits",
+    "horn", "horns",
+    "jam", "jams",
+    "keyboard", "keyboards",
+    "keys",
+    "kick", "kicks",
+    "kit",
+    "loop", "loops",
+    "major",
+    "melody",
+    "minor",
+    "oneshot", "oneshots",
+    "organ", "organs",
+    "pad", "pads",
+    "piano", "pianos",
+    "perc", "percs",
+    "percussion",
+    "pluck", "plucks",
+    "rhythm",
+    "riff", "riffs",
+    "roll", "rolls",
+    "shot", "shots",
+    "slow",
+    "snare", "snares",
+    "sound", "sounds",
+    "stab", "stabs",
+    "stomp", "stomps",
+    "strings",
+    "synth", "synths",
+    "tom", "toms",
+    "vox"
+]
+ALLOWED_NUMERIC_TOKENS = ["50", "60", "70", "80", "90",
+                          "303", "404", "505", "606", "707", "808", "909"
+                          ]
+MIN_TOKEN_LEN = 3
 
 @dataclass
 class ParsedAudioFilePath:
@@ -59,8 +134,8 @@ class AudioFilePathParser:
 
     def __init__(self) -> None:
         self.audio_exts = ["aif", "aiff", "flac", "mid", "midi", "mp3", "ogg", "wav"]
-        self.cache = {}
-        self.acronyms = []
+        #self.cache = {}
+        #self.acronyms = []
 
     def parse_path(self, path: str) -> ParsedAudioFilePath:
         path = self.trim(path.lower())
@@ -69,8 +144,14 @@ class AudioFilePathParser:
         raw_key, key_sig = self.parse_key_signature(space_normal_path)
         stripped_path = path.replace(raw_tempo, "").replace(raw_key, "")
         normal_path = self.normal_spaces(self.cleanse(stripped_path))
-        tokens = self.filter_tokens([_t.lower()
-                                     for _t in normal_path.split(" ")])
+        tokens = [_t.lower() for _t in normal_path.split(" ")]
+        tokens = self.filter_tokens(
+                 #self.split_tokens_by_ending(
+                 self.split_alphanumeric_tokens(
+                    tokens
+                 )
+                 #)
+                 )
         return ParsedAudioFilePath(path=path,
                                    key=key_sig,
                                    tempo=tempo,
@@ -79,12 +160,17 @@ class AudioFilePathParser:
     def normal_spaces(self, path: str) -> str:
         for _d in SPACE_ALTS:
             path = path.replace(_d, " ")
-        path = path.strip()
         while "  " in path:
             path = path.replace("  ", " ")
+        path = path.strip()
         return path
 
     def trim(self, path: str) -> str:
+        """
+        #Returns path without root directory or file extension.
+        File extensions do not need to be parsed.
+        #The root directory is the asset name, and need only be parsed once.
+        """
         if "." in path:
             path = ".".join(path.split(".")[:-1])
         if "/" in path:
@@ -94,8 +180,10 @@ class AudioFilePathParser:
     def cleanse(self, path: str) -> str:
         for _c in DROP_CHARS:
             path = path.replace(_c, "")
-        for acronym in self.acronyms:
-            path = path.replace(acronym, "")
+        #for acronym in self.acronyms:
+        #    path = path.replace(acronym, "")
+        path = self.make_substitutions(CHAR_SUBSTITUTIONS, path)
+        path = self.make_substitutions(STRING_SUBSTITUTIONS, path)
         return path
 
     def parse_key_signature(self, space_normal_path: str) -> Tuple[str]:
@@ -167,7 +255,7 @@ class AudioFilePathParser:
             return ("", "")
         raw_tempo = candidates[indexed_tempos[0][0]]
         normal_tempo = indexed_tempos[0][1]
-        if (normal_tempo < RANGE_TEMPO_4[0] or normal_tempo > RANGE_TEMPO_4[1]):
+        if (int(normal_tempo) < RANGE_TEMPO_4[0] or int(normal_tempo) > RANGE_TEMPO_4[1]):
             return ("", "")
         return (raw_tempo, normal_tempo)
 
@@ -191,20 +279,83 @@ class AudioFilePathParser:
         if label_acronym and title_acronym:
             acronyms.append(f"{label_acronym}{title_acronym}")
         return acronyms
-        
+
     def filter_tokens(self, tokens: List[str]) -> List[str]:
         return self.drop_spam_tokens(
                self.drop_nonlinguistic_tokens(
-               self.drop_single_char_tokens(
-               tokens
+               self.drop_tokens_by_len(
+               #self.untag_hashtags(
+               self.drop_attribution_tokens(
+                   tokens
+               )
+               #)
                )))
 
-    def drop_single_char_tokens(self, tokens: List[str]) -> List[str]:
-        return [_t for _t in tokens if len(_t) > 1]
+    def drop_tokens_by_len(self, tokens: List[str]) -> List[str]:
+        return [_t for _t in tokens if len(_t) >= MIN_TOKEN_LEN]
 
     def drop_spam_tokens(self, tokens: List[str]) -> List[str]:
         return [_t for _t in tokens if _t != _t[0]*len(_t)]
     
+    def split_alphanumeric_tokens(self, tokens: List[str]) -> List[str]:
+        output = []
+        for _t in tokens:
+            output += [_i for _i
+                       in re.split(ALPHA_NUM_TRANSITION_REGEX, _t)
+                       if _i]
+        return output
+
+    #def untag_hashtags(self, tokens: List[str]) -> List[str]:
+    #    output = []
+    #    for _t in tokens:
+    #        if (_t.startswith("#") and "#" not in _t[1:]):
+    #            output.append(_t[1:])
+    #        else:
+    #            output.append(_t)
+    #    return output
+        
     def drop_nonlinguistic_tokens(self, tokens: List[str]) -> List[str]:
-        return [_t for _t in tokens if re.search(r"[a-z]", _t)]
+        return [_t for _t in tokens
+                if (re.search(r"[a-z]", _t)
+                or _t in ALLOWED_NUMERIC_TOKENS)
+                ]
     
+    def drop_attribution_tokens(self, tokens: List[str]) -> List[str]:
+        return [_t for _t in tokens if not _t.startswith("@")]
+    
+    def make_substitutions(self, subs_dict: Dict[str, List[str]],
+                                 text: str
+                                 ) -> str:
+        for _k in subs_dict.keys():
+            for _i in subs_dict[_k]:
+                if _i in text:
+                    text = text.replace(_i, _k)
+        return text
+    
+    def split_tokens_by_ending(self, tokens: List[str]) -> List[str]:
+        output = []
+        for _t in tokens:
+            current_out = len(output)
+            for _ending in COMPOUND_TOKEN_ENDINGS:
+                if _t.endswith(_ending) and _t != _ending:
+                    split_at = (0 - len(_ending))
+                    output += [_t[:split_at], _ending]
+                    break
+            if len(output) == current_out:
+                output.append(_t)
+        if len(output) > len(tokens):
+            return self.split_tokens_by_ending(output)
+        return output
+            
+    def reduce_plural_tokens(self, tokens: List[str]) -> List[str]:
+        output = []
+        for _t in tokens:
+            if _t.endswith("ies") and _t[:-3] in COMPOUND_TOKEN_ENDINGS:
+                output.append(_t[:-3])
+            elif _t.endswith("es") and _t[:-2] in COMPOUND_TOKEN_ENDINGS:
+                output.append(_t[:-2])
+            elif _t.endswith("s") and _t[:-1] in COMPOUND_TOKEN_ENDINGS:
+                output.append(_t[:-1])
+            else:
+                output.append(_t)
+        return output

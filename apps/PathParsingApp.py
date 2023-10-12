@@ -105,6 +105,7 @@ class PathParser(App):
         self.audio_type_ids = [self.catalog.filetype_id(_ext) 
                            for _ext in self.parser.audio_exts 
                            if self.catalog.filetype_exists(_ext)]
+        self.target_asset_ids = self.all_unparsed_assets()
         self.log.info(f"END application initialization: Success")
 
     def parse_path(self, file_id) -> bool:
@@ -131,21 +132,19 @@ class PathParser(App):
         self.record.log_asset_parse(asset_id, self.cfg.app_key, finalize=True)
         return True
 
-    def asset_with_unparsed_files(self) -> str:
+    def all_unparsed_assets(self) -> List[str]:
         parsed_assets = [str(_i) for _i
                          in self.record.parsed_asset_ids(self.cfg.app_key)]
-        return self.catalog.all_asset_ids(limit=1,
-                                          excluding=parsed_assets
-                                          )[0]
+        return self.catalog.all_asset_ids(excluding=parsed_assets)
 
     def run(self):
-        target_asset_id = self.asset_with_unparsed_files()
-        while target_asset_id:
-            cname = self.catalog.asset_cname(target_asset_id)
+        #target_asset_id = self.asset_with_unparsed_files()
+        while self.target_asset_ids:
+            target_id = self.target_asset_ids.pop()
+            cname = self.catalog.asset_cname(target_id)
             self.log.info(f"BEGIN parsing audio file paths in {cname}")
-            self.parse_asset_file_paths(target_asset_id)
+            self.parse_asset_file_paths(target_id)
             self.log.info(f"END asset file path parsing: Success")
-            target_asset_id = self.asset_with_unparsed_files()
         return True
     
 

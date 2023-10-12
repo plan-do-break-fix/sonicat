@@ -1,4 +1,5 @@
 
+from cachetools import LRUCache
 from typing import Dict, List, Tuple
 
 from interfaces.Interface import DatabaseInterface
@@ -19,6 +20,7 @@ CREATE TABLE IF NOT EXISTS filepathtokens (
 );
 """,
 ]
+CACHE_SIZE = 5000000
 
 class TokensInterface(DatabaseInterface):
 
@@ -26,6 +28,12 @@ class TokensInterface(DatabaseInterface):
         super().__init__(dbpath)
         for statement in SCHEMA:
             self.c.execute(statement)
+        self.cache = LRUCache(maxsize=CACHE_SIZE)
+        self.populate_token_id_cache()
+
+    def populate_token_id_cache(self):
+        for id_value_pair in self.all_tokens()[:CACHE_SIZE]:
+            self.cache[id_value_pair[0]] = id_value_pair[1]
 
     def new_token(self, token: str) -> bool:
         self.c.execute("INSERT INTO token (value) VALUES (?);", (token,))
@@ -47,11 +55,12 @@ class TokensInterface(DatabaseInterface):
                               tokens: List[str],
                               finalize=False
                               ) -> bool:
-        id_cache = {}
         for _token in tokens:
-            if _token not in id_cache.keys():
-                id_cache[_token] = self.token_id_with_insert(_token)
-            self.new_file_token(id_cache[_token],
+            _id = self.cache.get(_token)
+            if not _id:
+                self.cache[_token] = self.token_id_with_insert(_token)
+                _id = self.cache.get(_token)
+            self.new_file_token(_id,
                                 file_id,
                                 app_key,
                                 finalize=False
@@ -74,18 +83,17 @@ class TokensInterface(DatabaseInterface):
         _id = self.token_id(token)
         if not _id:
             self.new_token(token)
-        self.c.execute("SELECT last_insert_rowid();")
-        return self.c.fetchone()[0]
+            self.c.execute("SELECT last_insert_rowid();")
+            _id = self.c.fetchone()[0]
+        return _id
     
-    def tokens_by_ids(self, token_ids: List[str], catalog: str) -> List[str]:
-        self.c.execute("SELECT value FROM token"
-                       f" WHERE id IN ({','.join(token_ids)})"\
-                       "  AND catalog = ?;",
-                       (catalog,))
-        return [_i[0] for _i in self.c.fetchall()]
+    def tokens_by_ids(self, token_ids: List[str]) -> List[str]:
+        self.c.execute("SELECT * FROM token"
+                       f" WHERE id IN ({','.join(token_ids)});")
+        return [_i[1] for _i in self.c.fetchall()]
 
-    def all_tokens(self, catalog: str) -> List[Tuple[str, str]]:
-        self.c.execute("SELECT (id, value) FROM tokens;")
+    def all_tokens(self) -> List[Tuple[str, str]]:
+        self.c.execute("SELECT * FROM token;")
         return self.c.fetchall()
     
     def token_ids_by_file(self, file_id: str, app_key: str) -> List[str]:
@@ -117,7 +125,6 @@ class TokensInterface(DatabaseInterface):
                        "  AND catalog = ?;",
                        (app_key,))
         return [_i[0] for _i in self.c.fetchall()]
-    
 
   # COUNTS
     def n_tokens(self, catalog: str) -> int:
@@ -142,7 +149,6 @@ class TokensInterface(DatabaseInterface):
                        "  WHERE file = ? AND catalog = ?;",
                        (file_id, catalog))
         return int(self.c.fetchone()[0])
-        return [_i[0] for _i in self.c.fetchall()]
         
     def n_tokens_by_files(self, file_ids: List[str], catalog:str) -> int:
         self.c.execute("SELECT COUNT(id) FROM filepathtokens"\
@@ -150,7 +156,6 @@ class TokensInterface(DatabaseInterface):
                        "  AND catalog = ?;",
                        (catalog,))
         return int(self.c.fetchone()[0])
-        return [_i[0] for _i in self.c.fetchall()]
         
     def n_unique_tokens_by_files(self, file_ids: List[str],
                                        catalog: str

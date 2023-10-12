@@ -161,29 +161,9 @@ class Catalog(App):
             self.log.debug(f"New file inserted: {_f['dirname']}/{_f['basename']}")
         return True
     
-  # Export
-    def export_asset(self, cname: str) -> bool:
-        self.log.info(f"BEGIN export of {cname}")
-        if not self.export_asset_precheck(cname):
-            self.log.error(f"Export Aborted - Precheck Validation Failed")
-            return False
-        label_dir = NameUtility.label_dir_from_cname(cname)
-        archive_path = f"{self.cfg.managed}/{label_dir}/{cname}.rar"
-        shutil.copyfile(archive_path, f"{self.cfg.temp}/")
-        self.log.debug(f"Archive {cname}.rar retrieved")
-        Archive.restore(f"{self.cfg.temp}/{cname}.rar")
-        shutil.move(f"{self.cfg.temp}/{cname}", self.cfg.export)
-        self.log.info(f"Asset exported to {self.cfg.export}")
-        shutil.rmtree(f"{self.cfg.temp}/{cname}.rar")
-        self.debug.log(f"Asset archive removed from {self.cfg.temp}")
-        self.log.info("END asset export: Success")
-        return True
+  
 
-    def export_asset_precheck(self, cname) -> bool:
-        if not self.db.asset_is_managed(self.db.asset_id(cname)):
-            self.log.warning("Cannot export unmanaged assets")
-            return False
-        return True
+    
         
     def export_database(self, out_path) -> bool:
         if not self.check_database():

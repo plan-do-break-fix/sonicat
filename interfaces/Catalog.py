@@ -3,6 +3,11 @@ from typing import Dict, List
 
 from interfaces.Interface import DatabaseInterface
 
+import shutil
+from util.NameUtility import NameUtility
+from util.FileUtility import Archive
+
+
 SCHEMA = [
 """
 CREATE TABLE IF NOT EXISTS asset (
@@ -27,7 +32,7 @@ CREATE TABLE IF NOT EXISTS file (
       REFERENCES asset (id)
       ON DELETE CASCADE,
     FOREIGN KEY (filetype)
-      REFERENCES file_type (id)
+      REFERENCES filetype (id)
 );
 """,
 """
@@ -367,3 +372,23 @@ class CatalogInterface(DatabaseInterface):
 
     def count_assets_by_labels(self) -> Dict[str, int]:
         pass
+
+
+    # Export
+
+
+    def export_asset_precheck(self, asset_id) -> bool:
+        if not self.asset_is_managed(asset_id):
+            return False
+        return True
+    
+    def export_asset_to_temp(self, asset_id, cfg) -> bool:
+        if not self.export_asset_precheck(asset_id):
+            return False
+        cname = self.asset_cname(asset_id)
+        label_dir = NameUtility.label_dir_from_cname(cname)
+        archive_path = f"{cfg.managed}/{label_dir}/{cname}.rar"
+        shutil.copyfile(archive_path, f"{cfg.temp}/{cname}.rar")
+        Archive.restore(f"{cfg.temp}/{cname}.rar")
+        shutil.os.remove(f"{cfg.temp}/{cname}.rar")
+        return True

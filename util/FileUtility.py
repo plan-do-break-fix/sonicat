@@ -124,10 +124,11 @@ class Archive:
             raise ValueError
         parent_dir, target = shutil.os.path.split(path)
         shutil.os.chdir(parent_dir)
-        subprocess.run(["unrar", "x", target],
-                       stdout=subprocess.DEVNULL,
-                       stderr=subprocess.STDOUT
-                       )
+        #subprocess.run(["unrar", "x", target],
+        #               stdout=subprocess.DEVNULL,
+        #               stderr=subprocess.STDOUT
+        #               )
+        subprocess.run(["unrar", "x", target])
         return True
 
 

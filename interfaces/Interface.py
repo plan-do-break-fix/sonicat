@@ -9,7 +9,7 @@ import requests
 import sqlite3
 from typing import List
 
-from util import NameUtility
+from util.NameUtility import NameUtility
 
 class DatabaseInterface:
 
@@ -24,7 +24,8 @@ class DatabaseInterface:
 class WebInterface:
 
     def __init__(self):
-        self.names = NameUtility.Transform()
+        pass
+        #self.names = NameUtility.Transform()
 
     def encode(self, query: str) -> str:
         query = query.replace(" - ", " ")
@@ -87,7 +88,7 @@ class WebInterface:
     def preview_images_by_alt_text(self, cname: str,
                                          soup: BeautifulSoup
                                          ) -> List[str]:
-        _, product, _ = self.names.divide_cname(cname)
+        _, product, _ = NameUtility.divide_cname(cname)
         body, candidates = soup.find("body"), []
         if " - " in product:
             prod_names = product.split(" - ")
@@ -105,24 +106,24 @@ class WebInterface:
                     candidates.append(_img)
         return candidates
 
-    def preview_images_by_fname(self, cname: str,
-                                      soup: BeautifulSoup
-                                      ) -> List[str]:
-        _, product, _ = self.names.divide_cname(cname)
-        candidates = []
-        if " - " in product:
-            prod_names = product.split(" - ")
-        else:
-            prod_names = []
-        prod_names.append(product)
-        name_forms = [_form for _list in
-                      self.names.name_forms()
-                      for _form in _list]
-        all_imgs = soup.find_all("img")
-        for _img in all_imgs:
-            for _form in name_forms:
-                if _form in _img.attrs.src.split("/")[-1]:
-                    candidates.append(_img)
-        return candidates
+    #def preview_images_by_fname(self, cname: str,
+    #                                  soup: BeautifulSoup
+    #                                  ) -> List[str]:
+    #    _, product, _ = self.names.divide_cname(cname)
+    #    candidates = []
+    #    if " - " in product:
+    #        prod_names = product.split(" - ")
+    #    else:
+    #        prod_names = []
+    #    prod_names.append(product)
+    #    name_forms = [_form for _list in
+    #                  self.names.name_forms()
+    #                  for _form in _list]
+    #    all_imgs = soup.find_all("img")
+    #    for _img in all_imgs:
+    #        for _form in name_forms:
+    #            if _form in _img.attrs.src.split("/")[-1]:
+    #                candidates.append(_img)
+    #    return candidates
 
 

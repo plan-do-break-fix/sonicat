@@ -5,14 +5,14 @@ from typing import Dict, List
 def cue2dict(path) -> Dict:
     out = {"tracks": {}}
     with open(path, "rb") as _f:
-        for _encoding in ["utf-8", "utf-16", "iso-8859-1", "cp1252", "latin-1", "ascii"]:
+        for _encoding in ["utf-8", "utf-16", "iso-8859-1", "cp1252", "latin-1", "ascii", "windows-1251"]:
             try:
                 lines = [_l.decode(_encoding).strip() for _l in _f.readlines()]
                 break
             except UnicodeDecodeError:
                 continue
     if not lines:
-        raise RuntimeWarning
+        return {}
     for _i, _l in enumerate(lines):
         if _l.startswith("REM DATE"):
             out["year"] = _l.split(" ")[-1]
@@ -21,9 +21,14 @@ def cue2dict(path) -> Dict:
         elif _l.startswith("TITLE"):
             out["title"] = _l.split('"')[-2]
         elif _l.startswith("TRACK"):
-            ordinal = _l.split(" ")[1]
-            title = lines[_i+1].split('"')[-2]
-            artist = lines[_i+2].split('"')[-2]
+            ordinal, artist = _l.split(" ")[1], ""
+            next_i = _i+1
+            while next_i < len(lines) and not lines[next_i].startswith("TRACK"):
+                if lines[next_i].startswith("TITLE"):
+                    title = lines[next_i].split('"')[-2]
+                elif lines[next_i].startswith("PERFORMER"):
+                    artist = lines[next_i].split('"')[-2]
+                next_i += 1
             out["tracks"][ordinal] = {"title": title, "artist": artist}
     return out
 
@@ -56,15 +61,20 @@ def make_tracks(path) -> bool:
         return False
     cue_path = [_i for _i in shutil.os.listdir(path) if _i.endswith(".cue")][0]
     cue_path = shutil.os.path.abspath(f"{path}/{cue_path}")
-    _dict = cue2dict(cue_path)
     split_flac(path)
-    fnames = file_names(_dict)
-    wav_files = [_i for _i in shutil.os.listdir(path) if _i.endswith(".wav")]
-    if not len(fnames) == len(wav_files):
-        raise RuntimeError
-    fnames.sort(), wav_files.sort()
-    for _pair in zip(wav_files, fnames):
-        shutil.move(_pair[0], _pair[1])
+    _dict = cue2dict(cue_path)
+    if _dict:
+        fnames = file_names(_dict)
+        wav_files = [_i for _i in shutil.os.listdir(path) if _i.endswith(".wav")]
+        #if not len(fnames) == len(wav_files):
+        #    raise RuntimeError
+        fnames.sort(), wav_files.sort()
+        for _pair in zip(wav_files, fnames):
+            shutil.move(_pair[0], _pair[1])
+    else:
+        cmd = f"rename 's/split-track//' *"
+        ps = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+        output = ps.communicate()[0]
     shutil.os.chdir(initial_dir)
     return True
 
@@ -85,7 +95,7 @@ def split_flac(path):
     cue_path = shutil.os.path.abspath(f"{path}/{cue_path}")
     cmd = f"cuebreakpoints \"{cue_path}\" | shnsplit -o wav \"{flac_path}\""
     ps = subprocess.Popen(cmd,shell=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
-    output = ps.communicate()[0]
+    print(ps.communicate()[0])
     return True
 
 def list_flacs(path) -> List[str]:

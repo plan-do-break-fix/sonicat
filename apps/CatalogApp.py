@@ -160,11 +160,7 @@ class Catalog(App):
                                                _f["size"])
             self.log.debug(f"New file inserted: {_f['dirname']}/{_f['basename']}")
         return True
-    
-  
-
-    
-        
+ 
     def export_database(self, out_path) -> bool:
         if not self.check_database():
             raise RuntimeWarning
@@ -230,9 +226,6 @@ class Catalog(App):
             print(f"  {_b}")
 
 
-
-
-
 from contextlib import closing
 import json
 from yaml import load, SafeLoader
@@ -254,15 +247,6 @@ class Build(Catalog):
         with closing(open(path, "r")) as _f:
             return json.load(_f)
         
-    #def file_data_compliance_check(self, data: dict) -> bool:
-    #    for _f in data:
-    #        if data[_f]["basename"] in self.ban["basename"]:
-    #            return False
-    #        for _d in self.ban["dirname"]:
-    #            if _d in data[_f]["dirname"]:
-    #                return False
-    #    return True
-
     def clear_invalid_filetypes(self, file_data: dict) -> dict:
         for _f in file_data.keys():
             name, ext = file_data[_f]["basename"], file_data[_f]["filetype"]
@@ -274,15 +258,11 @@ class Build(Catalog):
                     ]):
                 file_data[_f]["filetype"] = ""
         return file_data
-            
         
     def managed_intake_from_survey_json(self, json_path: str) -> bool:
         cname = json_path.split("/")[-1].replace(".json", "")
         label_id = self.label_id_with_insert(cname)
         file_data = self.read_asset_survey_json(json_path)
-        #if not self.file_data_compliance_check(file_data):
-        #    self.log.info("Asset file data compliance check failure")
-        #    return False
         self.clear_invalid_filetypes(file_data)
         self.db.new_asset(cname, label_id, managed=1)
         asset_id = self.db.asset_id(cname)

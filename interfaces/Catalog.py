@@ -43,26 +43,6 @@ CREATE TABLE IF NOT EXISTS label (
 );
 """,
 """
-CREATE TABLE IF NOT EXISTS collection (
-    id integer PRIMARY KEY,
-    name text NOT NULL
-);
-""",
-"""
-CREATE TABLE IF NOT EXISTS members (
-    id integer PRIMARY KEY,
-    asset integer NOT NULL,
-    collection integer NOT NULL,
-    ordinal integer,
-    FOREIGN KEY (asset)
-      REFERENCES asset (id)
-      ON DELETE CASCADE,
-    FOREIGN KEY (collection)
-      REFERENCES collection (id)
-      ON DELETE CASCADE
-);
-""",
-"""
 CREATE TABLE IF NOT EXISTS filetype (
     id integer PRIMARY KEY,
     name text NOT NULL
@@ -179,11 +159,6 @@ class CatalogInterface(DatabaseInterface):
     def asset_cnames_by_label(self, label_id: str) -> List[str]:
         self.c.execute("SELECT cname FROM asset WHERE label = ?;", (label_id,))
         return self.c.fetchall()
-
-    def asset_ids_by_collection(self, collection_id: str) -> List[str]:
-        self.c.execute("SELECT asset FROM collectionmembers WHERE collection = ?;",
-                       (collection_id,))
-        return self.c.fetchall()
    
     def all_asset_ids(self, limit=0, excluding=[]) -> List[str]:
         query_str = "SELECT id FROM asset"
@@ -229,11 +204,6 @@ class CatalogInterface(DatabaseInterface):
     def file_ids_by_digest(self, digest: str) -> List[str]:
         self.c.execute("SELECT id FROM file WHERE digest = ?;", (digest,))
         return [_i[0] for _i in self.c.fetchall()]
-
-    def collection_id(self, collection_name: str) -> str:
-        self.c.execute("SELECT id FROM collection WHERE name = ?;",
-                       (collection_name,))
-        return self.c.fetchone()[0]
          
   #Boolean Check Methods
     def asset_exists(self, cname: str) -> bool:
@@ -328,31 +298,6 @@ class CatalogInterface(DatabaseInterface):
                        (filetype_id,))
         return self.c.fetchone()[0]
 
-    #def all_label_cnames(self) -> List[str]:
-    #    self.c.execute("SELECT name FROM asset;")
-    #    return self.c.fetchall()
-  
-  # Collection Methods
-    def new_collection(self, name: str) -> bool:
-        self.c.execute("INSERT INTO collection (name) VALUES (?);", (name,))
-        self.db.commit()
-        return True
-
-    def add_asset_to_collection(self,
-                                asset_id: int,
-                                collection_id: int,
-                                ordinal=None
-                                ) -> bool:
-        if ordinal:
-            query = "INSERT INTO members (asset, series, ordinal) VALUES (?,?,?);"
-            values = (asset_id, collection_id, ordinal)
-        else:
-            query = "INSERT INTO members (asset, series) VALUES (?,?);"
-            values = (asset_id, collection_id)
-        self.c.execute(query, values)
-        self.db.commit()
-        return True
-
   # Counts
     def count_labels(self) -> int:
         self.c.execute("SELECT COUNT id FROM label;")
@@ -373,10 +318,7 @@ class CatalogInterface(DatabaseInterface):
     def count_assets_by_labels(self) -> Dict[str, int]:
         pass
 
-
-    # Export
-
-
+  # Export
     def export_asset_precheck(self, asset_id) -> bool:
         if not self.asset_is_managed(asset_id):
             return False

@@ -41,6 +41,9 @@ CREATE TABLE IF NOT EXISTS audiofeature(
 );
 """,
 """
+CREATE TABLE IF NOT EXISTS
+""",
+"""
 CREATE TABLE IF NOT EXISTS audiofeaturetype (
   id integer PRIMARY KEY,
   name text NOT NULL
@@ -65,8 +68,9 @@ VALUES
 INSERT OR REPLACE INTO audiofeaturetype
   (id, name)
 VALUES
-  (1, 'chroma_dist_hard_threshold'),
-  (2, 'beat_frames')
+  (1, 'chromatic_distribution'), 
+  (2, 'beat_frames'),
+  (3, 'chroma_dist')
 ;
 """,
 """
@@ -88,6 +92,7 @@ class AnalysisInterface(DatabaseInterface):
         for statement in SCHEMA:
             self.c.execute(statement)
         self.db.commit()
+        self.dtype_ids, self.ftype_ids, self.source_ids = {}, {}, {}
 
     def new_data(self, file_id: str,
                        catalog: str,
@@ -122,14 +127,18 @@ class AnalysisInterface(DatabaseInterface):
         return True
 
     def dtype_id(self, dtype_name: str) -> str:
-        self.c.execute("SELECT id FROM audiodatatype WHERE name = ?",
-                       (dtype_name,))
-        return self.c.fetchone()[0]
+        if not dtype_name in self.dtype_ids.keys():
+            self.c.execute("SELECT id FROM audiodatatype WHERE name = ?",
+                           (dtype_name,))
+            self.dtype_ids[dtype_name] = self.c.fetchone()[0]
+        return self.dtype_ids[dtype_name]
     
     def ftype_id(self, ftype_name: str) -> str:
-        self.c.execute("SELECT id FROM audiofeaturetype WHERE name = ?",
-                       (ftype_name,))
-        return self.c.fetchone()[0]
+        if not ftype_name in self.ftype_ids.keys():
+            self.c.execute("SELECT id FROM audiofeaturetype WHERE name = ?",
+                           (ftype_name,))
+            self.ftype_ids[ftype_name] = self.c.fetchone()[0]
+        return self.ftype_ids[ftype_name]
     
     def dtype(self, dtype_id: str) -> str:
         self.c.execute("SELECT name FROM audiodatatype WHERE id = ?",
@@ -149,9 +158,11 @@ class AnalysisInterface(DatabaseInterface):
         return self.c.fetchone()
         
     def data_source_id(self, audio_data_id) -> str:
-        self.c.execute("SELECT datasource FROM audiodata WHERE id = ?;",
-                       (audio_data_id,))
-        return self.c.fetchone()[0]
+        if not audio_data_id in self.source_ids.keys():
+            self.c.execute("SELECT datasource FROM audiodata WHERE id = ?;",
+                           (audio_data_id,))
+            self.source_ids[audio_data_id] = self.c.fetchone()[0]
+        return self.source_ids[audio_data_id]
 
     def feature_data_path(self, file_id, catalog, ftype_id) -> str:
         self.c.execute("""

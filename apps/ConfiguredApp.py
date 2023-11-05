@@ -7,7 +7,7 @@ from yaml import load, SafeLoader
 @dataclass
 class Config:
     name: str
-    app_key: str
+    moniker: str
     log_level: str
     data: str
     managed: str
@@ -15,27 +15,38 @@ class Config:
     intake: str
     export: str
     temp: str
-    #root: str
-    #config: str
-    #covers: str
-    #recover: str
+
 
 
 class App:
 
-    def __init__(self, sonicat_path: str, app_key: str) -> None:
+    def __init__(self, sonicat_path: str, moniker: str) -> None:
         with closing(open(f"{sonicat_path}/config/config.yaml", "r")) as _f:
-            #self.cfg = Config(**load(_f.read(), SafeLoader))
-            params = load(_f.read(), SafeLoader)[app_key]
-        config = {
-            "name": params["moniker"],
-            "app_key": app_key,
-            "log_level": params["log_level"],
-            "data": f"{sonicat_path}/data",
-            "managed": params["path"]["managed"],
-            "log": f"{sonicat_path}/log",
-            "intake": params["path"]["intake"],
-            "export": params["path"]["export"],
-            "temp": f"/tmp/sonicat-{app_key}"
-        }
-        self.cfg = Config(**config)
+            self.config = load(_f.read(), SafeLoader)
+        self.catalog_names = list(self.config["catalogs"].keys())
+        if not moniker:
+            self.cfg = Config(
+                log_level="debug",
+                data=f"{sonicat_path}/data",
+                log=f"{sonicat_path}/log",
+                name="",
+                moniker="",
+                managed="",
+                intake="",
+                export="",
+                temp="/tmp/sonicat"
+            )
+        else:
+            app_params = self.config["catalogs"][moniker]
+            app_config = {
+                "name": app_params["moniker"],
+                "moniker": moniker,
+                "log_level": app_params["log_level"],
+                "data": f"{sonicat_path}/data",
+                "managed": app_params["path"]["managed"],
+                "log": f"{sonicat_path}/log",
+                "intake": app_params["path"]["intake"],
+                "export": app_params["path"]["export"],
+                "temp": f"/tmp/sonicat-{moniker}"
+            }
+            self.cfg = Config(**app_config)

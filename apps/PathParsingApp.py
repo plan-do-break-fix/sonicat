@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS log (
     id integer PRIMARY KEY,
     asset integer NOT NULL,
     catalog text NOT NULL
-)
+);
 """
 ]
 

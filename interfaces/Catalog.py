@@ -1,5 +1,5 @@
 
-from dataclasses import import shutil
+import shutil
 from typing import Dict, List
 
 from interfaces.Interface import DatabaseInterface
@@ -169,6 +169,18 @@ class CatalogInterface(DatabaseInterface):
         self.c.execute(query_str)
         return [_i[0] for _i in self.c.fetchall()]
 
+    def all_asset_ids_in_range(self, i_id=0, f_id=0) -> List[str]:
+        if not i_id > 0:
+            i_id = 1
+        if not f_id > 0:
+            self.c.execute("SELECT id FROM asset ORDER BY id DESC LIMIT 1;")
+            res = self.c.fetchone()
+            f_id = res[0] if res else 0
+        self.c.execute("SELECT id FROM asset WHERE id >= ? and id <= ? ORDER BY id ASC;",
+                       (i_id, f_id))
+        return self.c.fetchall()
+
+
     def asset_ids_from_file_ids(self, file_ids: List[str]) -> List[str]:
         self.c.execute("SELECT DISTINCT asset FROM files"\
                        f" WHERE id IN ({','.join(file_ids)});")
@@ -203,6 +215,11 @@ class CatalogInterface(DatabaseInterface):
     def file_ids_by_digest(self, digest: str) -> List[str]:
         self.c.execute("SELECT id FROM file WHERE digest = ?;", (digest,))
         return [_i[0] for _i in self.c.fetchall()]
+
+    def file_ids_by_label(self, label_id: str) -> List[str]:
+        self.c.execute("SELECT id FROM file WHERE label = ?;", (label_id,))
+        return [_i[0] for _i in self.c.fetchall()]
+
          
   #Boolean Check Methods
     def asset_exists(self, cname: str) -> bool:
@@ -323,13 +340,61 @@ class CatalogInterface(DatabaseInterface):
             return False
         return True
     
-    def export_asset_to_temp(self, asset_id, cfg) -> bool:
+    def export_asset_to_temp(self, asset_id, managed_path, temp_path) -> bool:
         if not self.export_asset_precheck(asset_id):
             return False
+        if not shutil.os.path.isdir(temp_path):
+            shutil.os.makedirs(temp_path, exist_ok=True)
         cname = self.asset_cname(asset_id)
         label_dir = NameUtility.label_dir_from_cname(cname)
-        archive_path = f"{cfg.managed}/{label_dir}/{cname}.rar"
-        shutil.copyfile(archive_path, f"{cfg.temp}/{cname}.rar")
-        Archive.restore(f"{cfg.temp}/{cname}.rar")
-        shutil.os.remove(f"{cfg.temp}/{cname}.rar")
+        archive_path = f"{managed_path}/{label_dir}/{cname}.rar"
+        shutil.copyfile(archive_path, f"{temp_path}/{cname}.rar")
+        Archive.restore(f"{temp_path}/{cname}.rar")
+        shutil.os.remove(f"{temp_path}/{cname}.rar")
         return True
+
+  # Complex ID Getters
+    def label_file_id_pairs(self, filetype_ids=""):
+        query = "SELECT a.label, f.id FROM"\
+                "  asset a JOIN"\
+                "  file f ON a.id = f.asset"
+        if filetype_ids:
+            query += f" WHERE f.filetype = {filetype_ids.pop()}"
+            while filetype_ids:
+                query += f" OR f.filetype = {filetype_ids.pop()}"
+        query += ";"
+        self.c.execute(query)
+        return self.c.fetchall()
+
+
+
+  #  
+  #  def asset_file_id_dict(self, filetype_ids=""):
+  #      query = "SELECT asset, id FROM file"
+  #      if filetype_ids:
+  #          query += f" WHERE filetype = {filetype_ids.pop()}"
+  #          while filetype_ids:
+  #              query += f" OR filetype = {filetype_ids.pop()}"
+  #      query += ";"
+  #      self.c.execute(query)
+  #      output = {}
+  #      for _res in self.c.fetchall():
+  #          if _res[0] not in output.keys():
+  #              output[_res[0]] = []
+  #          output[_res[0]].append(_res[1])
+  #      return output
+#
+  #  def file_asset_id_pairs(self, filetype_ids="") -> List[Tuple[str]]:
+  #      query = "SELECT id, asset FROM file"
+  #      if filetype_ids:
+  #          query += f" WHERE filetype = {filetype_ids.pop()}"
+  #          while filetype_ids:
+  #              query += f" OR filetype = {filetype_ids.pop()}"
+  #      query += ";"
+  #      self.c.execute(query)
+  #      return self.c.fetchall()
+#
+  #  def asset_label_id_pairs(self) -> List["str"]:
+  #      self.c.execute("SELECT id, label FROM asset;")
+  #      return self.c.fetchall()
+  #  

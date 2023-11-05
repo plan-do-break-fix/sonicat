@@ -19,9 +19,9 @@ class Catalog(App):
         self.log = Logs.initialize_logging(self.cfg)
         self.log.info(f"BEGIN {self.cfg.name} application initialization")
         self.cln = Cleanse(f"{sonicat_path}/config/file-blacklist.yaml")
-        if shutil.os.path.exists(self.cfg.temp):
-            shutil.rmtree(self.cfg.temp)
-        shutil.os.mkdir(self.cfg.temp)   #TODO This probably should be mkdirs
+        #if shutil.os.path.exists(self.cfg.temp):
+        #    shutil.rmtree(self.cfg.temp)
+        #shutil.os.mkdir(self.cfg.temp)   #TODO This probably should be mkdirs
         self.db_path = f"{self.cfg.data}/catalog/{self.cfg.name}.sqlite"
         self.db = CatalogInterface(self.db_path)
         self.log.debug(f"Connected to database {self.db_path}")

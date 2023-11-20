@@ -6,6 +6,7 @@
 
 from bs4 import BeautifulSoup
 import requests
+import shutil
 import sqlite3
 from typing import List
 
@@ -14,11 +15,22 @@ from util.NameUtility import NameUtility
 class DatabaseInterface:
 
     def __init__(self, dbpath=""):
+        self.dbpath = dbpath
         self.db = sqlite3.connect(dbpath)
         self.c = self.db.cursor()
 
     def commit(self):
         return self.db.commit()
+
+    def export_replica(self):
+        self.db.commit()
+        self.db.close()
+        replica_path = self.dbpath.replace(".sqlite", "-ReadReplica.sqlite")
+        shutil.copyfile(self.dbpath,replica_path)
+        self.db = sqlite3.connect(self.dbpath)
+        self.c = self.db.cursor()
+        
+
 
 
 class WebInterface:

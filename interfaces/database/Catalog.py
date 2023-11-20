@@ -169,22 +169,16 @@ class CatalogInterface(DatabaseInterface):
         self.c.execute(query_str)
         return [_i[0] for _i in self.c.fetchall()]
 
-    def all_asset_ids_in_range(self, i_id=0, f_id=0) -> List[str]:
-        if not i_id > 0:
-            i_id = 1
-        if not f_id > 0:
-            self.c.execute("SELECT id FROM asset ORDER BY id DESC LIMIT 1;")
-            res = self.c.fetchone()
-            f_id = res[0] if res else 0
-        self.c.execute("SELECT id FROM asset WHERE id >= ? and id <= ? ORDER BY id ASC;",
-                       (i_id, f_id))
-        return self.c.fetchall()
+    def asset_id_from_file(self, file_id: str) -> str:
+        self.c.execute("SELECT asset FROM file WHERE id = ?;", (file_id,))
+        return self.c.fetchone()[0]
 
-
-    def asset_ids_from_file_ids(self, file_ids: List[str]) -> List[str]:
-        self.c.execute("SELECT DISTINCT asset FROM files"\
-                       f" WHERE id IN ({','.join(file_ids)});")
-        return [_i[0] for _i in self.c.fetchall()]
+    # If this is to work with file ids from mutliple assets, it should return
+    # file ID, asset ID pairs
+    #def asset_ids_from_file_ids(self, file_ids: List[str]) -> List[str]:
+    #    self.c.execute("SELECT DISTINCT asset FROM files"\
+    #                   f" WHERE id IN ({','.join(file_ids)});")
+    #    return [_i[0] for _i in self.c.fetchall()]
         
     def filetype_id(self, ext: str) -> str:
         self.c.execute("SELECT id FROM filetype WHERE name = ?;", (ext.lower(),))

@@ -87,7 +87,7 @@ class PathParser(App):
 
     def __init__(self, sonicat_path: str, app_key: str) -> None:
         super().__init__(sonicat_path, app_key)
-        catalog_db_path = f"{self.cfg.data}/catalog/{self.cfg.name}.sqlite"
+        catalog_db_path = f"{self.cfg.data}/catalog/{self.cfg.name}-ReadReplica.sqlite"
         self.catalog = CatalogInterface(catalog_db_path)
         self.cfg.name = "PathParser"
         self.cfg.log += "/tokens"
@@ -112,11 +112,11 @@ class PathParser(App):
         path = self.catalog.file_path(file_id)
         result: Parser.ParsedAudioFilePath = self.parser.parse_path(path)
         self.tokens.add_file_tokens(file_id,
-                                    self.cfg.app_key,
+                                    self.cfg.moniker,
                                     result.tokens,
                                     finalize=False)
         self.record.new_path_parse(file_id,
-                                   self.cfg.app_key,
+                                   self.cfg.moniker,
                                    result.tempo,
                                    result.key,
                                    finalize=False)
@@ -129,12 +129,12 @@ class PathParser(App):
                 continue
             self.parse_path(_fid)
         self.tokens.db.commit()
-        self.record.log_asset_parse(asset_id, self.cfg.app_key, finalize=True)
+        self.record.log_asset_parse(asset_id, self.cfg.moniker, finalize=True)
         return True
 
     def all_unparsed_assets(self) -> List[str]:
         parsed_assets = [str(_i) for _i
-                         in self.record.parsed_asset_ids(self.cfg.app_key)]
+                         in self.record.parsed_asset_ids(self.cfg.moniker)]
         return self.catalog.all_asset_ids(excluding=parsed_assets)
 
     def run(self):
@@ -161,32 +161,32 @@ class TokenAnalysis(App):
 
     def n_all_tokens(self):
         if not "n_all_tokens" in self.cache.keys():
-            self.cache["n_all_tokens"] = self.tokens.n_tokens(self.cfg.app_key)
+            self.cache["n_all_tokens"] = self.tokens.n_tokens(self.cfg.moniker)
         return self.cache["n_all_tokens"]
 
     def n_unique_tokens(self):
         if not "n_unique_tokens" in self.cache.keys():
-            self.cache["n_unique_tokens"] = self.tokens.n_unique_tokens(self.cfg.app_key)
+            self.cache["n_unique_tokens"] = self.tokens.n_unique_tokens(self.cfg.moniker)
         return self.cache["n_unique_tokens"]
 
     def pct_of_all_tokens(self, token_id: str) -> float:
-        n_token = self.tokens.n_occurrences_total(token_id, self.cfg.app_key)
-        n_all_tokens = self.n_all_tokens(self.cfg.app_key)
+        n_token = self.tokens.n_occurrences_total(token_id, self.cfg.moniker)
+        n_all_tokens = self.n_all_tokens(self.cfg.moniker)
         return (n_token / n_all_tokens) * 100
     
     def pct_of_files_with_token(self, token_id: str) -> float:
-        n_files = self.tokens.n_files_with_token(token_id, self.cfg.app_key)
-        n_all_files = self.tokens.n_files_in_database(self.cfg.app_key)
+        n_files = self.tokens.n_files_with_token(token_id, self.cfg.moniker)
+        n_all_files = self.tokens.n_files_in_database(self.cfg.moniker)
         return (n_files / n_all_files) * 100
 
-    def assets_with_token(self, token_id: str) -> int:
-        file_ids = self.tokens.n_files_with_token(token_id, self.cfg.app_key)
-        return self.catalog.asset_ids_from_file_ids(file_ids)
+    #def assets_with_token(self, token_id: str) -> int:
+    #    file_ids = self.tokens.n_files_with_token(token_id, self.cfg.moniker)
+    #    return self.catalog.asset_ids_from_file_ids(file_ids)
 
     def freq_dict(self) -> Dict[str, int]:
         result = {}
-        for _t in self.tokens.all_tokens(self.cfg.app_key):
+        for _t in self.tokens.all_tokens(self.cfg.moniker):
             _token = _t[1]
-            _freq = self.tokens.n_occurrences_total(_t[0], self.cfg.app_key)
+            _freq = self.tokens.n_occurrences_total(_t[0], self.cfg.moniker)
             result[_token] = _freq
         return result

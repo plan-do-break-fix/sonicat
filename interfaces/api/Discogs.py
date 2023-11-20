@@ -1,14 +1,11 @@
 
 
-from contextlib import closing
 from dataclasses import dataclass
-import functools
-import time
-from typing import List
-from yaml import load, SafeLoader
+from typing import List, Union
 
 import discogs_client
 
+from interfaces.api.Client import ApiClient
 from util.NameUtility import NameUtility
 
 @dataclass
@@ -22,25 +19,96 @@ class Result:
     formats = []
 
 
-class Client:
+class Client(ApiClient):
 
-    def __init__(self, sonicat_path: str):
-        with closing(open(f"{sonicat_path}/config/secrets.yaml", "r")) as _f:
-            secret = load(_f.read(), SafeLoader)
-        self.dc = discogs_client.Client(secret["discogs"]["user_agent"],
+    def __init__(self, sonicat_path):
+        secret = super().__init__(sonicat_path)
+        self.conn = discogs_client.Client(secret["discogs"]["user_agent"],
                                         user_token=secret["discogs"]["token"])
-        self.last_call = time.time()
+        self.wait=2
 
-    def throttle(self, wait=2):
-        if time.time() - self.last_call < wait:
-            time.sleep(wait)   #intentional; max_t b/w calls ~= 2t
-        self.last_call = time.time()
-        return True
+    def search_label_title(self, label: str, title: str, year: str):
+        results = self.conn.search(f"{label} {title}")
+        return results[0]
+
+    def search_title_year(self, title: str, year: str):
+        results = self.conn.search(f"{title} {year}")
+        return results[0]
+
+    def search(self, cname: str) -> Union[discogs_client.Release, bool]:
+        label, title, year = NameUtility.divide_cname(cname)
+        results = self.safe_search(self.search_label_title, [label, title])
+        # // 
+        result_lt = self.safe_search(self.search_label_title, [label, title])
+        if result_lt == False and self.title_has_media_type_label(title):
+            trimmed_title = self.drop_media_type_labels(title)
+            result_lt = self.safe_search(self.search_label_title, [label, trimmed_title])
+        if self.validate_result(cname, result_lt):
+            return result_lt
+        result_ty = self.safe_search(self.search_label_title, [title, year])
+        if result_ty == False and self.title_has_media_type_label(title):
+            trimmed_title = self.drop_media_type_labels(title)
+            result_ty = self.safe_search(self.search_label_title, [trimmed_title, year])
+        if any([self.validate_result(cname, result_ty),
+                self.validate_result(cname, result_lt, result_ty)
+                ]):
+            return result_ty
+        return False
     
-    def search(self, cname: str):
+    def exact_match(self, label, title, result) -> bool:
+        return bool(result.data["title"].lower() == f"{label} - {title}".lower())
+    
+    def title_inclusion_with_year(self, title, year, result) -> bool:
+        return all([result.data["year"] == year,
+                    title.lower() in result.data["title"].lower()
+                    ])
+    
+    def result_equality_with_year(self, year, result1, result2) -> bool:
+        return all([result1 == result2,
+                    result1.data["year"] == year
+                    ])
+
+    def validate_result(self, cname, result, result2=False) -> bool:
+        label, title, year = NameUtility.divide_cname(cname)
+        if self.title_has_media_type_label(title):
+            title = self.drop_media_type_labels(title)
+        if not result2:
+            if self.safe_check(self.exact_match, [label, title, result]):
+                return True
+            if self.safe_check(self.title_inclusion_with_year, [title, year, result]):
+                return True
+            return False
+        if self.safe_check(self.result_equality_with_year, [year, result, result2]):
+            return True
+        return False
+        
+    def process_result(self, rawresult) -> Result:
+        res = Result(title=rawresult.data["title"],
+                     discogsid=rawresult.data["id"]
+                     )
+        if "year" in rawresult.data.keys():
+            res.year += rawresult.data["year"]
+        if "country" in rawresult.data.keys():
+            res.country = rawresult.data["country"]
+        if "genre" in rawresult.data.keys():
+            res.tags += rawresult.data["genre"]
+        if "style" in rawresult.data.keys():
+            res.tags += rawresult.data["style"]
+        if "format" in rawresult.data.keys():
+            res.formats = rawresult.data["format"]
+        if "cover_image" in rawresult.data.keys():
+            res.cover_url = rawresult.data["cover_image"]
+        if res.tags:
+            res.tags = list(set(res.tags))
+        if res.formats:
+            res.formats = list(set(res.formats))
+        return res
+
+    '''
+    def OLD_search(self, cname: str):
         _label, _title, _year = NameUtility.divide_cname(cname)
         self.throttle()
-        results1 = self.dc.search(f"{_label} {_title}")
+        results1 = self.conn.search(f"{_label} {_title}")
         try:
             if results1[0].data["title"].lower() == f"{_label} - {_title}":
                 return results1[0]
@@ -54,7 +122,7 @@ class Client:
         except KeyError:
             pass
         self.throttle()
-        results2 = self.dc.search(f"{_title} {_year}")
+        results2 = self.conn.search(f"{_title} {_year}")
         try:
             if results1[0] == results2[0]:
                 return results1[0]
@@ -80,29 +148,9 @@ class Client:
         except KeyError:
             pass
         return False
+    '''
 
-
-    def process_result(self, rawresult) -> Result:
-        res = Result(title=rawresult.data["title"],
-                     discogsid=rawresult.data["id"]
-                     )
-        if "year" in rawresult.data.keys():
-            res.year += rawresult.data["year"]
-        if "country" in rawresult.data.keys():
-            res.country = rawresult.data["country"]
-        if "genre" in rawresult.data.keys():
-            res.tags += rawresult.data["genre"]
-        if "style" in rawresult.data.keys():
-            res.tags += rawresult.data["style"]
-        if "format" in rawresult.data.keys():
-            res.formats = rawresult.data["format"]
-        if "cover_image" in rawresult.data.keys():
-            res.cover_url = rawresult.data["cover_image"]
-        if res.tags:
-            res.tags = list(set(res.tags))
-        if res.formats:
-            res.formats = list(set(res.formats))
-        return res
+    
         
 from interfaces.Interface import DatabaseInterface
 
@@ -166,7 +214,7 @@ CREATE TABLE IF NOT EXISTS resultformats (
 """
 ]
 
-class DiscogsData(DatabaseInterface):
+class Data(DatabaseInterface):
 
     def __init__(self, dbpath=""):
         super().__init__(dbpath)
@@ -191,6 +239,11 @@ class DiscogsData(DatabaseInterface):
     def record_failed_search(self, catalog, asset_id):
         self.c.execute("INSERT INTO failedsearch (catalog, asset) VALUES (?,?);",
                        (catalog, asset_id))
+
+    def drop_failed_search(self, catalog, asset_id):
+        self.c.execute("DELETE FROM failedsearch WHERE catalog = ? AND asset = ?;",
+                       (catalog, asset_id))
+        self.db.commit()
 
     def new_result(self, catalog, asset_id, res: Result) -> str:
         query = "INSERT INTO result (catalog, asset, title, year, discogsid"

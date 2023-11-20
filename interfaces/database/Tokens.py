@@ -133,7 +133,13 @@ class TokensInterface(DatabaseInterface):
         return int(self.c.fetchone()[0])
 
     def n_unique_tokens(self, catalog: str) -> int:
-        self.c.execute("SELECT COUNT(DISTINCT id) FROM filepathtokens"\
+        self.c.execute("SELECT COUNT(DISTINCT token) FROM filepathtokens"\
+                       "  WHERE catalog = ?;",
+                       (catalog,))
+        return int(self.c.fetchone()[0])
+
+    def n_files(self, catalog: str) -> int:
+        self.c.execute("SELECT COUNT(DISTINCT file) FROM filepathtokens"\
                        "  WHERE catalog = ?;",
                        (catalog,))
         return int(self.c.fetchone()[0])

@@ -1,10 +1,10 @@
 
 
 from dataclasses import dataclass
-from decimal import Decimal
-from typing import List, Union
-
 import discogs_client
+# For type hints
+from typing import List, Union
+from decimal import Decimal
 from discogs_client import Master
 
 from interfaces.api.Client import ApiClient

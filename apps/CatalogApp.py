@@ -4,7 +4,7 @@ import shutil
 from typing import List
 
 from apps.ConfiguredApp import App
-from interfaces.Catalog import CatalogInterface
+from interfaces.database.Catalog import CatalogInterface
 from util.FileUtility import Archive, Cleanse, FileUtility
 from util.NameUtility import NameUtility
 from util import Logs

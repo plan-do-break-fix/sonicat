@@ -1,7 +1,7 @@
 
 from apps.ConfiguredApp import App
-from interfaces.Catalog import CatalogInterface
-from interfaces.Discogs import Client, DiscogsData
+from interfaces.database.Catalog import CatalogInterface
+from interfaces.api.Discogs import Client, Data
 from util import Logs
 
 
@@ -9,8 +9,8 @@ class Discogs(App):
 
     def __init__(self, sonicat_path: str) -> None:
         super().__init__(sonicat_path, moniker="releases")
-        self.catalog = CatalogInterface(f"{self.cfg.data}/catalog/ReleaseCatalog.sqlite")
-        self.data = DiscogsData(f"{self.cfg.data}/pages/DiscogsMetadata.sqlite")
+        self.catalog = CatalogInterface(f"{self.cfg.data}/catalog/ReleaseCatalog-ReadReplica.sqlite")
+        self.data = Data(f"{self.cfg.data}/pages/DiscogsMetadata.sqlite")
         self.cl = Client(sonicat_path)
         self.cfg.log_level = "debug"
         self.cfg.log += "/pages"
@@ -25,7 +25,7 @@ class Discogs(App):
             return False
         result = self.cl.process_result(rawresult)
         self.data.record_result("releases", asset_id, result)
-        self.data.db.commit()
+        self.data.db.commit()  # Why is this here? Put this in the DB interface where it belongs
         return True
 
 
@@ -42,10 +42,10 @@ class Discogs(App):
             assets_to_search.sort()
 
         for _id in assets_to_search:
-            self.log.debug(f"Finding asset ID {_id} in Discogs.")
+            self.log.debug(f"Searching asset ID {_id} in Discogs.")
             if self.process_asset(_id):
-                self.log.debug("Results recorded.")
+                self.log.debug("Verified matching release data recorded.")
             else:
                 self.data.record_failed_search("releases", _id)
-                self.log.warning(f"No results found. Continuing.")
+                self.log.warning(f"No verifiable match for asset. Continuing.")
                 

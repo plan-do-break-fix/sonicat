@@ -22,10 +22,10 @@ class DatabaseInterface:
     def commit(self):
         return self.db.commit()
 
-    def export_replica(self):
+    def export_replica(self, note=""):
         self.db.commit()
         self.db.close()
-        replica_path = self.dbpath.replace(".sqlite", "-ReadReplica.sqlite")
+        replica_path = self.dbpath.replace(".sqlite", f"-ReadReplica{note}.sqlite")
         shutil.copyfile(self.dbpath,replica_path)
         self.db = sqlite3.connect(self.dbpath)
         self.c = self.db.cursor()

@@ -259,18 +259,32 @@ class CatalogInterface(DatabaseInterface):
         result = self.c.fetchone()
         return f"{result[1]}/{result[0]}"
 
-    def file_data(self, file_id: int) -> Dict:
+    def file_data(self, file_id: str) -> Dict:
         self.c.execute("SELECT * FROM file WHERE id = ?;", (file_id,))
         result = self.c.fetchone()
-        return {
-            "id": result[0],
-            "asset": result[1],
-            "basename": result[2],
-            "dirname": result[3],
-            "size": result[4],
-            "filetype": result[5],
-            "digest": result[6]
-        }
+        return {"id": result[0],
+                "asset": result[1],
+                "basename": result[2],
+                "dirname": result[3],
+                "size": result[4],
+                "filetype": result[5],
+                "digest": result[6]
+                }
+
+    def all_file_data_by_asset(self, asset_id: str, filetype_id: str) -> List[Dict]:
+        self.c.execute("SELECT * FROM file WHERE asset = ? AND filetype = ?;",
+                       (asset_id, filetype_id))
+        result = self.c.fetchall()
+        if not result:
+            return []
+        return [{"id": res[0],
+                 "asset": res[1],
+                 "basename": res[2],
+                 "dirname": res[3],
+                 "size": res[4],
+                 "filetype": res[5],
+                 "digest": res[6]
+                 } for res in result]
     
     def asset_files_by_type(self, asset: str, filetype: str) -> List[str]:
         self.c.execute("SELECT id FROM file WHERE asset = ? and filetype = ?;",

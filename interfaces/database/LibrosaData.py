@@ -124,12 +124,21 @@ class DataInterface(DatabaseInterface):
                        (dtype_id,))
         return self.c.fetchone()[0]
     
-    def data_value(self, file_id, catalog, dtype_id) -> Tuple[str]:
+    def data_value(self, file_id: str, catalog, dtype_id) -> Tuple[str]:
         self.c.execute("""
         SELECT id, datavalue FROM audiodata
         WHERE file = ? AND catalog = ? AND datatype = ?
         ;""", (file_id, catalog, dtype_id))
         return self.c.fetchone()
+    
+    def data_values(self, file_ids: List[str], catalog, dtype_id) -> Tuple[str]:
+        query = "SELECT file, datavalue FROM audiodata WHERE catalog = ? AND datatype = ?"
+        query += f" AND file IN ({file_ids[0]}"
+        for _id in file_ids[1:]:
+            query += f",{_id}"
+        query += ");"
+        self.c.execute(query, (catalog, dtype_id))
+        return self.c.fetchall()
     
     def data_file_path(self, file_id, catalog, dtype_id) -> Tuple[str]:
         self.c.execute("""

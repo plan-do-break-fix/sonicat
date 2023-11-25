@@ -1,25 +1,11 @@
-
-from dataclasses import dataclass
-from typing import List, Union
+#!/usr/bin/python3
 
 import pylast
+# Typing
+from typing import List
+from pylast import Album
 
-from interfaces.api.Client import ApiClient
-from util.NameUtility import NameUtility
-
-@dataclass
-class AlbumResult:
-    title: str
-    year = ""
-    cover_url = ""
-    tags = []
-
-@dataclass
-class TrackResult:
-    title: str
-    duration: int
-    lyrics = ""
-    tags = []
+from interfaces.api.Client import ApiClient, ParsedResult
 
 
 class Client(ApiClient):
@@ -33,12 +19,29 @@ class Client(ApiClient):
             )
         self.wait = 1
 
-    def search(self, cname: str) -> Union[pylast.Album, bool]:
-        label, title, year = NameUtility.divide_cname(cname)
-        return False
-    
-    def validate_album_result(self, cname, result) -> bool:
-        return False
+    def search(self, album: str) -> bool:
+        result = self.conn.search_for_album(album)
+        if not result:
+            return False
+        page = result.get_next_page()
+        self.set_active_search(page)
+
+    def next_result(self) -> Album:
+        if not self.active_search:
+            return False
+        res = self.active_search[self.next_result_index]
+        self.next_result_index += 1
+        return res
+
+    def get_track_names(self, rawresult: Album) -> List[str]:
+        pass
+
+    def get_track_durations(self, rawresult: Album) -> List[str]:
+        pass
+
+    def parse_result(self, rawresult: Album) -> ParsedResult:
+        pass
+
 
 
 from interfaces.Interface import DatabaseInterface

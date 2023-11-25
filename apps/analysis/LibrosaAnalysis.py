@@ -6,8 +6,8 @@ import shutil
 from typing import List, Tuple
 
 from apps.ConfiguredApp import App, Config
-from interfaces.LibrosaData import DataInterface
-from interfaces.Catalog import CatalogInterface
+from interfaces.database.LibrosaData import DataInterface
+from interfaces.database.Catalog import CatalogInterface
 from util import Logs
 from util.NameUtility import NameUtility
 
@@ -127,7 +127,3 @@ class LibrosaAnalysis(App):
             self.analyze_asset_wavs(catalog, _id)
         return True
     
-    def concurrent_run(self, catalog, i_assetid, f_assetid):
-        _ids = self.catalog[catalog].all_asset_ids_in_range(i_assetid, f_assetid)
-        assets_to_process = [_id for _id in all_ids if _id not in self.completed_assets[catalog]]
-

@@ -50,9 +50,9 @@ class HarmonicDistanceData(DatabaseInterface):
     def all_data(self):
         self.c.execute("SELECT * FROM data;")
         return self.c.fetchall()
-
-    def make_dbpath(self, sonicat_path, dbname):
-        pass
+    
+    def make_dbpath(self, sonicat_path, dbname) -> str:
+        return f"{sonicat_path}/data/analysis/{dbname}"
 
     def smallest_distances(self, n: int) -> List[Tuple[str]]:
         self.c.execute("SELECT * FROM data ORDER BY distance ASC LIMIT ?;", (n,))
@@ -68,8 +68,9 @@ class Intracatalog(HarmonicDistanceData):
     def __init__(self, sonicat_path, catalog):
         dbpath = self.make_dbpath(sonicat_path, self.make_dbname(catalog))
         super().__init__(dbpath)
-        for statement in INTRACATALOG_HARMONIC_DISTANCE_SCHEMA:
-            self.c.execute(statement)
+        #for statement in INTRACATALOG_HARMONIC_DISTANCE_SCHEMA:
+        #    self.c.execute(statement)
+        self.c.execute(INTRACATALOG_HARMONIC_DISTANCE_SCHEMA)
 
     def make_dbname(self, catalog: str) -> str:
         return f"HarmonicDistance-{catalog}_Intracatalog.sqlite"
@@ -92,7 +93,7 @@ class Intracatalog(HarmonicDistanceData):
                        (file_id,))
         return self.c.fetchall()
 
-    def last_intracatalog_pair(self, catalog) -> Tuple(int):
+    def last_intracatalog_pair(self) -> Tuple[int]:
         self.c.execute("SELECT file1, file2 FROM data ORDER BY id DESC LIMIT 1;")
         result = self.c.fetchone()
         return (int(result[0]), int(result[1])) if result else (0,0)
@@ -103,8 +104,9 @@ class Intercatalog(HarmonicDistanceData):
     def __init__(self, sonicat_path, catalog1, catalog2):
         dbpath = self.make_dbpath(sonicat_path, self.make_dbname(catalog1, catalog2))
         super().__init__(dbpath)
-        for statement in INTERCATALOG_HARMONIC_DISTANCE_SCHEMA:
-            self.c.execute(statement)
+        #for statement in INTERCATALOG_HARMONIC_DISTANCE_SCHEMA:
+        #    self.c.execute(statement)
+        self.c.execute(INTERCATALOG_HARMONIC_DISTANCE_SCHEMA)
 
     def make_dbname(self, catalog1: str, catalog2) -> str:
         return f"HarmonicDistance-{catalog1}_{catalog2}_Intercatalog.sqlite"
@@ -165,9 +167,9 @@ class HarmonicDistance(App):
         self.log.info(f"Initializing data for linear intracatalog run: {catalog}")
         results = Intracatalog(self.sonicat_path, catalog)
         cdists = self.rosa_data.all_chroma_distributions(catalog)
-        all_ids = cdists.keys()
+        all_ids = list(cdists.keys())
         all_ids.sort()
-        last_completed = self.data.load_completed_intracatalog_pair(catalog)
+        last_completed = results.last_intracatalog_pair()
         if last_completed[0] == last_completed[1] == 0:
             self.log.info("No previously calculated pairs found. Beginning new run.")
         else:
@@ -175,23 +177,26 @@ class HarmonicDistance(App):
         for _id in all_ids:
             if _id < last_completed[1]:
                 continue
-            if time() - timestamp >= 600:
-                results.export_replica()
+            #if time() - timestamp >= 600:
+            #    results.export_replica(note=f"_{int(time())}")
             self.log.info(f"Calculating linear run with file ID {_id} as file1")
             for _id2 in all_ids:
                 if any([_id2 <= _id, _id2 <= last_completed[0]]):
                     continue
                 cd1, cd2 = cdists[_id], cdists[_id2]
+                if any([cd1[0] == "NaN",
+                        cd2[0] == "NaN"
+                        ]):
+                    continue
                 distance = self.harmonic_distance(cd1, cd2)
                 if not distance and distance != 0.0:
                     self.log_failed_distance_calc(catalog, _id, cd1, catalog, _id2, cd2) 
                     continue
-                results.add_distance(catalog, _id, catalog, _id2, distance)
-                self.log.debug(f"Harmonic distance recorded for intracatalog pair {_id}, {_id2}")
+                results.add_distance(_id, _id2, distance)
+                print(f"Harmonic distance recorded for intracatalog pair {_id}, {_id2}")
         self.log.info(f"All distances calculated. Run terminated successfully.")
 
-    def intercatalog_all_pairs_run(self, catalog_asset_pairs: List[Tuple[str]]
-                                         ) -> bool:
+    def intercatalog_all_pairs_run(self, catalog_asset_pairs: List[Tuple[str]]) -> bool:
         cdists = {p: {} for p in set([p[0] for p in catalog_asset_pairs])}
         for p in catalog_asset_pairs:
             cdists[p[0]][p[1]] = self.rosa_data.chroma_distribution(p[0], p[1])

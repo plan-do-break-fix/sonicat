@@ -12,8 +12,11 @@ IGNORE_TAGS = [
     f".*\bown\b.*",
     f".*\blisten\b.*",
     f".*\byou (must|should|have)\b.*",
-    f"favorites?"
+    f".*\bspotify\b.*",
+    f"favorite.*"
 ]
+ALBUM_TAG_MIN_WEIGHT = 35
+TRACK_TAG_MIN_WEIGHT = 4
 
 class Client(ApiClient):
 
@@ -56,9 +59,14 @@ class Client(ApiClient):
       # cover image URL
         _cover = rawresult.get_cover_image()
         res.cover_url = _cover if _cover else ""
-      # tags, year
-        _tags = rawresult.get_top_tags()
-        res.tags = [_t.item.name for _t in _tags] if _tags else []
+      # tags
+        all_tags = rawresult.get_top_tags()
+        if all_tags:
+            res.tags = [_t.item.name for _t in all_tags
+                        if int(_t.weight) >=  ALBUM_TAG_MIN_WEIGHT
+                        ]
+        else:
+            res.tags = []
       # description
         _description = rawresult.get_wiki_summary()
         res.description = _description if _description else ""
@@ -88,8 +96,13 @@ class Client(ApiClient):
         _duration = rawresult.get_duration()
         res.duration = int(_duration/1000) if _duration else 0
       # tags
-        _tags = rawresult.get_top_tags()
-        res.tags = [_t.item.name for _t in _tags] if _tags else []
+        all_tags = rawresult.get_top_tags()
+        if all_tags:
+            res.tags = [_t.item.name for _t in all_tags
+                        if int(_t.weight) >= TRACK_TAG_MIN_WEIGHT
+                        ]
+        else:
+            res.tags = []
       # description
         _description = rawresult.get_wiki_summary()
         res.description = _description if _description else ""
@@ -284,8 +297,9 @@ class Data(DatabaseInterface):
             query += ", ordinal"
             arguments.append(res.ordinal)
         if res.artist:
+            artist_id = self.get_cached_artist_id_with_insertion(res.artist)
             query += ", artist"
-            arguments.append(res.artist)
+            arguments.append(artist_id)
         if res.lyrics:
             query += ", lyrics"
             arguments.append(res.lyrics)

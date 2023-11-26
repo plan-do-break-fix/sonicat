@@ -1,12 +1,19 @@
 #!/usr/bin/python3
 
 import pylast
+import re
 # Typing
-from typing import List
-from pylast import Album
+from typing import List, Tuple
+from pylast import Album, Track
 
-from interfaces.api.Client import ApiClient, ParsedResult
+from interfaces.api.Client import ApiClient, ParsedAlbum, ParsedTrack
 
+IGNORE_TAGS = [
+    f".*\bown\b.*",
+    f".*\blisten\b.*",
+    f".*\byou (must|should|have)\b.*",
+    f"favorites?"
+]
 
 class Client(ApiClient):
 
@@ -33,15 +40,69 @@ class Client(ApiClient):
         self.next_result_index += 1
         return res
 
-    def get_track_names(self, rawresult: Album) -> List[str]:
-        pass
+    def tracks(self, rawresult: Album) -> List[ParsedTrack]:
+        rawtracks = rawresult.get_tracks()
+        tracks = [self.parse_track_result(_t) for _t in rawtracks]
+        return tracks if all(tracks) else False
 
-    def get_track_durations(self, rawresult: Album) -> List[str]:
-        pass
+    def parse_album_result(self, rawresult: Album) -> ParsedAlbum:
+        _title = rawresult.get_title()
+        if not _title:
+            return False
+        res = ParsedAlbum(title=_title)
+      # artist
+        _artist = rawresult.get_artist()
+        res.artist = _artist.get_name() if _artist else ""
+      # cover image URL
+        _cover = rawresult.get_cover_image()
+        res.cover_url = _cover if _cover else ""
+      # tags, year
+        _tags = rawresult.get_top_tags()
+        res.tags = [_t.item.name for _t in _tags] if _tags else []
+      # description
+        _description = rawresult.get_wiki_summary()
+        res.description = _description if _description else ""
+      # tracks
+        _parsed_tracks = self.tracks(rawresult)
+        res.tracks = _parsed_tracks if _parsed_tracks else []
+      # API identifiers
+        _url = rawresult.get_url()
+        res.api_url = _url if _url else ""
+      # counts
+        _count = rawresult.get_listener_count()
+        res.listener_count = str(_count) if _count else ""
+        _count = rawresult.get_playcount()
+        res.play_count = str(_count) if _count else ""
+      #
+        return res
 
-    def parse_result(self, rawresult: Album) -> ParsedResult:
-        pass
-
+    def parse_track_result(self, rawresult: Track) -> ParsedTrack:
+        _title = rawresult.get_title()
+        if not _title:
+            return False
+        res = ParsedTrack(title=_title)
+      # artist
+        _artist = rawresult.get_artist()
+        res.artist = _artist.get_name() if _artist else ""
+      # duration
+        _duration = rawresult.get_duration()
+        res.duration = int(_duration/1000) if _duration else 0
+      # tags
+        _tags = rawresult.get_top_tags()
+        res.tags = [_t.item.name for _t in _tags] if _tags else []
+      # description
+        _description = rawresult.get_wiki_summary()
+        res.description = _description if _description else ""
+      # API identifiers
+        _url = rawresult.get_url()
+        res.api_url = _url if _url else ""
+      # counts
+        _count = rawresult.get_listener_count()
+        res.listener_count = str(_count) if _count else ""
+        _count = rawresult.get_playcount()
+        res.play_count = str(_count) if _count else ""
+      #
+        return res
 
 
 from interfaces.Interface import DatabaseInterface
@@ -118,7 +179,7 @@ class Data(DatabaseInterface):
         self.db.commit()
         self.tag_cache = {}
 
-    def record_album_result(self, catalog, asset_id, res: AlbumResult, finalize=False) -> bool:
+    def record_album_result(self, catalog, asset_id, res: ParsedAlbum, finalize=False) -> bool:
         result_id = self.new_album_result(catalog, asset_id, res)
         if res.tags:
             for tag in res.tags:
@@ -150,7 +211,7 @@ class Data(DatabaseInterface):
         self.db.commit()
         return True
     
-    def new_album_result(self, catalog, asset_id, res: AlbumResult) -> str:
+    def new_album_result(self, catalog, asset_id, res: ParsedAlbum) -> str:
         query = "INSERT INTO albumresult (catalog, asset, title, year"
         arguments = [catalog, asset_id, res.title, res.year]
         if res.cover_url:

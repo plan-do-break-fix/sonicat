@@ -1,14 +1,11 @@
+#!/usr/bin/python3
 
-
-from dataclasses import dataclass
 import discogs_client
-# For type hints
-from typing import List, Union
-from decimal import Decimal
-from discogs_client import Master
+# Typing
+from typing import List
+from discogs_client import Release, Track
 
-from interfaces.api.Client import ApiClient
-from util.NameUtility import NameUtility
+from interfaces.api.Client import ApiClient, ParsedAlbum, ParsedTrack
 
 """
 API Reference: https://www.discogs.com/developers
@@ -22,17 +19,6 @@ Validating a search result confirms that the Discogs Release and Sonicat Cname
 """
 
 
-@dataclass
-class ParsedResultData:
-    title: str
-    discogsid: str
-    year = ""
-    country = ""
-    cover_url = ""
-    tags = []
-    formats = []
-
-
 class Client(ApiClient):
 
     def __init__(self, sonicat_path):
@@ -41,100 +27,84 @@ class Client(ApiClient):
                                         user_token=secret["discogs"]["token"])
         self.wait=2
 
-    def search_releases(self, title, artist, year, master=True):
-        type_str = "master" if master else "release"
-        if artist and year:
-            return self.conn.search(title, artist=artist, year=year, type=type_str)
+    def search(self, title, artist="", publisher="", year="") -> bool:
+        kwargs = {"type": "release"}
         if artist:
-            return self.conn.search(title, artist=artist, type=type_str)
+            kwargs["artist"] = artist
+        if publisher:
+            kwargs["label"] = publisher
         if year:
-            return self.conn.search(title, year=year, type=type_str)
-        return self.conn.search(title, type=type_str)
-
-    def search(self, cname: str, track_durations: List[Decimal]) -> Union[Master, bool]:
-        label, title, year = NameUtility.divide_cname(cname)
-        if self.title_has_media_type_label(title):
-            trimmed_title = self.drop_media_type_labels(title)
-        else:
-            trimmed_title = False
-        # search by title, label as artist, year 
-        results = self.safe_search(self.search_releases, [title, label, year])
-        if not results and trimmed_title:
-            results = self.safe_search(self.search_releases, [trimmed_title, label, year])
-        release = self.validate_result(results, track_durations) if results else False
-        if release:
-            return release
-        # search by title, label as artist
-        results = self.safe_search(self.search_releases, [title, label, ""])
-        if not results and trimmed_title:
-            results = self.safe_search(self.search_releases, [trimmed_title, label, ""])
-        release = self.validate_result(results, track_durations) if results else False
-        if release:
-            return release
-        # search by title, year 
-        results = self.safe_search(self.search_releases, [title, "", year])
-        if not results and trimmed_title:
-            results = self.safe_search(self.search_releases, [trimmed_title, "", year])
-        release = self.validate_result(results, track_durations) if results else False
-        if release:
-            return release
-        # search by concatenated label, title 
-        search_str = f"{label} {title}"
-        results = self.safe_search(self.search_releases, [search_str, "", ""])
-        if not results and trimmed_title:
-            search_str = f"{label} {trimmed_title}"
-            results = self.safe_search(self.search_releases, [search_str, "", ""])
-        release = self.validate_result(results, track_durations) if results else False
-        if release:
-            return release
-        return False
-
-    def validate_result(self, results: List[Master], track_durations: List[Decimal]) -> Master:
-        if len(results) == 1:
-            n_tracks_expected = len(track_durations)
-            if (n_tracks_expected == len(results[0].tracklist)
-                or 
-                all([n_tracks_expected + 1 == len(results[0].tracklist),
-                     int(results[0].tracklist[-1].duration.split(":")[0]) > 30,
-                     "mix" in results[0].tracklist[0].title.lower()
-                     ])
-                ):
-                expected_track_1_duration = track_durations[0]
-                actual_track_1_duration = int(results[0].tracklist[-1].duration.split(":")[0]) * 60
-                actual_track_1_duration += int(results[0].tracklist[-1].duration.split(":")[1])
-                if actual_track_1_duration - 1 < expected_track_1_duration < actual_track_1_duration + 1:
-                    return results[0]
+            kwargs["year"] = year
+        self.throttle()
+        results = self.conn.search(title, **kwargs)
+        if results.count == 0:
             return False
-        t_i = 0
-        while t_i < max([len(results), 11]):
-            release = self.validate_result([results[t_i]])
-            if release:
-                return release
-            t_i += 1
+        self.set_active_search(results.page(0))
+        return True
 
-    def parse_result(self, rawresult) -> ParsedResultData:
-        prd = ParsedResultData(title=rawresult.data["title"],
-                               discogsid=rawresult.data["id"]
-                               )
+    def next_result(self) -> Release:
+        if not self.active_search:
+            return False
+        res = self.active_search[self.next_result_index]
+        self.next_result_index += 1
+        return res
+
+    def tracks(self, rawresult: Release) -> List[ParsedTrack]:
+        rawtracks = rawresult.tracklist
+        tracks = [self.parse_track_result(_t) for _t in rawtracks]
+        return tracks if all(tracks) else False
+
+    def parse_album_result(self, rawresult: Release) -> ParsedAlbum:
+        res = ParsedAlbum(title=rawresult.data["title"])
+      # artist
+        if "artists" in rawresult.data.keys() and len(rawresult["artists"]) == 1:
+            res.artist = rawresult["artists"][0].data["name"]
+      # catalog
+        if "catno" in rawresult.data.keys():
+            res.catalog = rawresult.data["catno"]
+      # year
         if "year" in rawresult.data.keys():
-            prd.year += rawresult.data["year"]
-        if "country" in rawresult.data.keys():
-            prd.country = rawresult.data["country"]
-        if "genre" in rawresult.data.keys():
-            prd.tags += rawresult.data["genre"]
-        if "style" in rawresult.data.keys():
-            prd.tags += rawresult.data["style"]
-        if "format" in rawresult.data.keys():
-            prd.formats = rawresult.data["format"]
+            res.year += rawresult.data["year"]
+      # album cover URL
         if "cover_image" in rawresult.data.keys():
-            prd.cover_url = rawresult.data["cover_image"]
-        if prd.tags:
-            prd.tags = list(set(prd.tags))
-        if prd.formats:
-            prd.formats = list(set(prd.formats))
-        return prd
+            res.cover_url = rawresult.data["cover_image"]
+      # tags
+        if "genre" in rawresult.data.keys():
+            res.tags += rawresult.data["genre"]
+        if "style" in rawresult.data.keys():
+            res.tags += rawresult.data["style"]
+        if res.tags:
+            res.tags = list(set(res.tags)) 
+      # country
+        if "country" in rawresult.data.keys():
+            res.country = rawresult.data["country"]
+      # formats
+        if "format" in rawresult.data.keys():
+            res.formats = rawresult.data["format"]
+        if res.formats:
+            res.formats = list(set(res.formats))
+      # tracks
+        _parsed_tracks = self.tracks(rawresult)
+        res.tracks = _parsed_tracks if _parsed_tracks else []
+      # API identifiers
+        res.api_id = rawresult.data["id"]
+        res.api_url = rawresult.data["resource_url"]
+        return res
 
-    
+    def parse_track_result(self, rawresult: Track) -> ParsedTrack:
+        if not rawresult.title:
+            return False
+        res = ParsedTrack(title=rawresult.title)
+      # artist
+        if rawresult.artists and len(rawresult.artists) == 1:
+            res.artist = rawresult.artists[0]
+      # duration
+        if "duration" not in rawresult.data.keys():
+            res.duration = 0
+        min_str, sec_str = rawresult.data["duration"].split(":")
+        res.duration = int(min_str) * 60 + int(sec_str)
+      #
+        return res
         
 from interfaces.Interface import DatabaseInterface
 
@@ -208,7 +178,7 @@ class Data(DatabaseInterface):
         self.tag_cache = {}
         self.format_cache = {}
 
-    def record_result(self, catalog, asset_id, res: ParsedResultData):
+    def record_result(self, catalog, asset_id, res: ParsedAlbum):
         result_id = self.new_result(catalog, asset_id, res)
         if res.tags:
             for tag in res.tags:
@@ -229,7 +199,7 @@ class Data(DatabaseInterface):
                        (catalog, asset_id))
         self.db.commit()
 
-    def new_result(self, catalog, asset_id, res: ParsedResultData) -> str:
+    def new_result(self, catalog, asset_id, res: ParsedAlbum) -> str:
         query = "INSERT INTO result (catalog, asset, title, year, discogsid"
         arguments = [catalog, asset_id, res.title, res.year, res.discogsid]
         if res.country:
@@ -281,6 +251,11 @@ class Data(DatabaseInterface):
         self.c.execute("SELECT asset FROM result WHERE catalog = ?;", (catalog,))
         return [_i[0] for _i in self.c.fetchall()]
     
-    def all_failed_searched_by_catalog(self, catalog):
-        self.c.execute("SELECT asset FROM failedsearch;")
+    def all_failed_searches_by_catalog(self, catalog):
+        self.c.execute("SELECT asset FROM failedsearch WHERE catalog=?;", (catalog,))
         return [_i[0] for _i in self.c.fetchall()]
+
+    def all_results_by_asset(self, asset_id, catalog):
+        self.c.execute("SELECT * FROM results WHERE asset = ? AND catalog = ?",
+                       (asset_id, catalog))
+        return self.c.fetchall()

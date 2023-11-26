@@ -15,7 +15,6 @@ class ParsedAlbum:
     title: str
     artist = ""
     publisher = ""
-    catalog = ""
     year = ""
     cover_url = ""
     tags = []
@@ -34,6 +33,7 @@ class ParsedAlbum:
 @dataclass
 class ParsedTrack:
     title: str
+    ordinal = ""
     artist = ""
     duration = ""
     tags = []

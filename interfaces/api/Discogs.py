@@ -57,11 +57,11 @@ class Client(ApiClient):
     def parse_album_result(self, rawresult: Release) -> ParsedAlbum:
         res = ParsedAlbum(title=rawresult.data["title"])
       # artist
-        if "artists" in rawresult.data.keys() and len(rawresult["artists"]) == 1:
-            res.artist = rawresult["artists"][0].data["name"]
+        if rawresult.artists and len(rawresult.artists) == 1:
+            res.artist = rawresult.artists[0].name
       # year
         if "year" in rawresult.data.keys():
-            res.year += rawresult.data["year"]
+            res.year = rawresult.data["year"]
       # album cover URL
         if "cover_image" in rawresult.data.keys():
             res.cover_url = rawresult.data["cover_image"]
@@ -276,8 +276,9 @@ class Data(DatabaseInterface):
             query += ", ordinal"
             arguments.append(res.ordinal)
         if res.artist:
+            artist_id = self.get_cached_artist_id_with_insertion(res.artist)
             query += ", artist"
-            arguments.append(res.artist)
+            arguments.append(artist_id)
         if res.duration:
             query += ", duration"
             arguments.append(res.duration)

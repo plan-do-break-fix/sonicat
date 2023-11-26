@@ -114,9 +114,21 @@ CREATE TABLE IF NOT EXISTS albumresult (
   catalog text NOT NULL,
   asset integer NOT NULL,
   title text NOT NULL,
-  year integer NOT NULL,
+  artist text,
+  publisher text,
+  year integer,
+  description text,
+  cover_url text,
   country text,
-  cover_url text
+  url text,
+  listener_count integer,
+  play_count integer,
+  FOREIGN KEY (artist)
+    REFERENCES artist (id)
+    ON DELETE CASCADE,
+  FOREIGN KEY (publisher)
+    REFERENCES publisher (id)
+    ON DELETE CASCADE
 );
 """,
 """
@@ -125,8 +137,29 @@ CREATE TABLE IF NOT EXISTS trackresult (
   catalog text NOT NULL,
   file integer NOT NULL,
   title text NOT NULL,
-  country text,
-  cover_url text
+  ordinal text,
+  artist text,
+  duration integer,
+  lyrics text,
+  description text,
+  url text,
+  listener_count integer,
+  play_count integer,
+  FOREIGN KEY (artist)
+    REFERENCES artist (id)
+    ON DELETE CASCADE,
+);
+""",
+"""
+CREATE TABLE IF NOT EXISTS artist (
+  id integer PRIMARY KEY,
+  name text NOT NULL
+);
+""",
+"""
+CREATE TABLE IF NOT EXISTS publisher (
+  id integer PRIMARY KEY,
+  name text NOT NULL
 );
 """,
 """
@@ -179,24 +212,20 @@ class Data(DatabaseInterface):
         self.db.commit()
         self.tag_cache = {}
 
-    def record_album_result(self, catalog, asset_id, res: ParsedAlbum, finalize=False) -> bool:
+    def record_result(self, catalog, asset_id, file_ids, res: ParsedAlbum):
         result_id = self.new_album_result(catalog, asset_id, res)
         if res.tags:
             for tag in res.tags:
                 tag_id = self.get_cached_tag_id_with_insertion(tag)
-                self.new_album_result_tag(result_id, tag_id)
-        if finalize:
-            self.db.commit()
-        return True
-
-    def record_track_result(self, catalog, file_id, res: TrackResult, finalize=False) -> bool:
-        result_id = self.new_track_result(catalog, file_id, res)
-        if res.tags:
-            for tag in res.tags:
-                tag_id = self.get_cached_tag_id_with_insertion(tag)
-                self.new_track_result_tag(result_id, tag_id)
-        if finalize:
-            self.db.commit()
+                self.new_album_tag(result_id, tag_id)
+        if res.tracks and len(res.tracks) == len(file_ids):
+            for _i, _t in enumerate(res.tracks):
+                file_id = file_ids[_i]
+                result_id = self.new_track_result(catalog, file_id, _t)
+                if _t.tags:
+                    for tag in res.tags:
+                        tag_id = self.get_cached_tag_id_with_insertion(tag)
+                        self.new_track_tag(result_id, tag_id)
         return True
 
     def record_failed_search(self, catalog, asset_id) -> bool:
@@ -212,22 +241,63 @@ class Data(DatabaseInterface):
         return True
     
     def new_album_result(self, catalog, asset_id, res: ParsedAlbum) -> str:
-        query = "INSERT INTO albumresult (catalog, asset, title, year"
-        arguments = [catalog, asset_id, res.title, res.year]
+        query = "INSERT INTO albumresult (catalog, asset, title"
+        arguments = [catalog, asset_id, res.title]
+        if res.artist:
+            artist_id = self.get_cached_artist_id_with_insertion(res.artist)
+            query += ", artist"
+            arguments.append(artist_id)
+        if res.publisher:
+            publisher_id = self.get_cached_publisher_id_with_insertion(res.publisher)
+            query += ", publisher"
+            arguments.append(publisher_id)
+        if res.year:
+            query += ", year"
+            arguments.append(res.year)
+        if res.description:
+            query += ", description"
+            arguments.append(res.description)
         if res.cover_url:
             query += ", cover_url"
             arguments.append(res.cover_url)
+        if res.country:
+            query += ", country"
+            arguments.append(res.country)
+        if res.url:
+            query += ", api_url"
+            arguments.append(res.api_url)
+        if res.listener_count:
+            query += ", listener_count"
+            arguments.append(res.listener_count)
+        if res.play_count:
+            query += ", play_count"
+            arguments.append(res.play_count)
         query += f") VALUES (?{',?' * (len(arguments)-1)});"
         self.c.execute(query, arguments)
         self.c.execute("SELECT last_insert_rowid();")
         return self.c.fetchone()[0]
 
-    def new_track_result(self, catalog, file_id, res: TrackResult) -> str:
+    def new_track_result(self, catalog, file_id, res: ParsedTrack) -> str:
         query = "INSERT INTO trackresult (catalog, file, title"
         arguments = [catalog, file_id, res.title]
+        if res.ordinal:
+            query += ", ordinal"
+            arguments.append(res.ordinal)
+        if res.artist:
+            query += ", artist"
+            arguments.append(res.artist)
         if res.lyrics:
             query += ", lyrics"
             arguments.append(res.lyrics)
+        if res.duration:
+            query += ", duration"
+            arguments.append(res.duration)
+        if res.listener_count:
+            query += ", listener_count"
+            arguments.append(res.listener_count)
+        if res.play_count:
+            query += ", play_count"
+            arguments.append(res.play_count)
         query += f") VALUES (?{',?' * (len(arguments)-1)});"
         self.c.execute(query, arguments)
         self.c.execute("SELECT last_insert_rowid();")
@@ -245,15 +315,38 @@ class Data(DatabaseInterface):
             self.tag_cache[tag] = result[0]
         return self.tag_cache[tag]
     
-    def new_album_result_tag(self, album_result_id, tag_id) -> bool:
-        self.c.execute("INSERT INTO albumtags (result, tag) VALUES (?,?)",
-                       (album_result_id, tag_id))
+    def get_cached_artist_id_with_insertion(self, artist) -> str:
+        artist = artist.lower()
+        if artist not in self.artist_cache:
+            self.c.execute('SELECT id FROM artist WHERE name = ?;', (artist,))
+            result = self.c.fetchone()
+            if not result:
+                self.c.execute("INSERT INTO artist (name) VALUES (?);", (artist,))
+                self.c.execute("SELECT last_insert_rowid();")
+                result = self.c.fetchone()
+            self.artist_cache[artist] = result[0]
+        return self.artist_cache[artist]
+    
+    def get_cached_publisher_id_with_insertion(self, publisher) -> str:
+        publisher = publisher.lower()
+        if publisher not in self.publisher_cache:
+            self.c.execute('SELECT id FROM publisher WHERE name = ?;', (publisher,))
+            result = self.c.fetchone()
+            if not result:
+                self.c.execute("INSERT INTO publisher (name) VALUES (?);", (publisher,))
+                self.c.execute("SELECT last_insert_rowid();")
+                result = self.c.fetchone()
+            self.publisher_cache[publisher] = result[0]
+        return self.publisher_cache[publisher]
+    
+    def new_album_tag(self, result_id, tag_id):
+        self.c.execute("INSERT INTO albumtags (albumresult, tag) VALUES (?,?)",
+                       (result_id, tag_id))
         return True
-
-    def new_track_result_tag(self, track_result_id, tag_id) -> bool:
-        self.c.execute("INSERT INTO tracktags (result, tag) VALUES (?,?)",
-                       (track_result_id, tag_id))
-        return True
+    
+    def new_track_tag(self, result_id, tag_id):
+        self.c.execute("INSERT INTO tracktags (trackresult, tag) VALUES (?,?)",
+                       (result_id, tag_id))
 
     def all_asset_ids_by_catalog(self, catalog) -> List[str]:
         self.c.execute("SELECT asset FROM result WHERE catalog = ?;",

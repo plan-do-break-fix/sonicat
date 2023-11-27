@@ -71,7 +71,7 @@ class Client(ApiClient):
         if "style" in rawresult.data.keys():
             res.tags += rawresult.data["style"]
         if res.tags:
-            res.tags = list(set(res.tags)) 
+            res.tags = list(set([_t.lower() for _t in res.tags])) 
       # country
         if "country" in rawresult.data.keys():
             res.country = rawresult.data["country"]
@@ -114,8 +114,8 @@ CREATE TABLE IF NOT EXISTS albumresult (
   catalog text NOT NULL,
   asset integer NOT NULL,
   title text NOT NULL,
-  artist text,
-  publisher text,
+  artist integer,
+  publisher integer,
   year integer,
   cover_url text,
   country text,
@@ -139,7 +139,7 @@ CREATE TABLE IF NOT EXISTS trackresult (
   duration integer,
   FOREIGN KEY (artist)
     REFERENCES artist (id)
-    ON DELETE CASCADE,
+    ON DELETE CASCADE
 );
 """,
 """
@@ -159,7 +159,7 @@ CREATE TABLE IF NOT EXISTS failedsearch (
   id integer PRIMARY KEY,
   catalog text NOT NULL,
   asset integer NOT NULL
-)
+);
 """,
 """
 CREATE TABLE IF NOT EXISTS tag (
@@ -172,34 +172,16 @@ CREATE TABLE IF NOT EXISTS albumtags (
   id integer PRIMARY KEY,
   albumresult integer NOT NULL,
   tag integer NOT NULL,
-  FOREIGN KEY (result)
-    REFERENCES result (id)
+  FOREIGN KEY (albumresult)
+    REFERENCES albumresult (id)
     ON DELETE CASCADE,
   FOREIGN KEY (tag)
     REFERENCES tag (id)
     ON DELETE CASCADE
 );
-""",
-"""
-CREATE TABLE IF NOT EXISTS format (
-  id integer PRIMARY KEY,
-  name text NOT NULL
-);
-""",
-"""
-CREATE TABLE IF NOT EXISTS resultformats (
-  id integer PRIMARY KEY,
-  result integer NOT NULL,
-  format integer NOT NULL,
-  FOREIGN KEY (result)
-    REFERENCES result (id)
-    ON DELETE CASCADE,
-  FOREIGN KEY (format)
-    REFERENCES format (id)
-    ON DELETE CASCADE
-);
 """
 ]
+
 
 class Data(DatabaseInterface):
 
@@ -227,6 +209,7 @@ class Data(DatabaseInterface):
             for _i, _t in enumerate(res.tracks):
                 file_id = file_ids[_i]
                 result_id = self.new_track_result(catalog, file_id, _t)
+        self.db.commit()
         return True
 
     def record_failed_search(self, catalog, asset_id):

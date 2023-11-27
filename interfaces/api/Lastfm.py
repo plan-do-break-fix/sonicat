@@ -29,8 +29,10 @@ class Client(ApiClient):
             )
         self.wait = 1
 
-    def search(self, album: str) -> bool:
-        result = self.conn.search_for_album(album)
+    def search(self, title, artist="", publisher="", year="") -> bool:
+        q_str = f"{artist}{publisher} {title}" if artist or publisher else title
+        q_str += f" {year}" if year else ""
+        result = self.conn.search_for_album(q_str)
         if not result:
             return False
         page = result.get_next_page()
@@ -56,13 +58,15 @@ class Client(ApiClient):
       # artist
         _artist = rawresult.get_artist()
         res.artist = _artist.get_name() if _artist else ""
+      # year
+        
       # cover image URL
         _cover = rawresult.get_cover_image()
         res.cover_url = _cover if _cover else ""
       # tags
         all_tags = rawresult.get_top_tags()
         if all_tags:
-            res.tags = [_t.item.name for _t in all_tags
+            res.tags = [_t.item.name.lower() for _t in all_tags
                         if int(_t.weight) >=  ALBUM_TAG_MIN_WEIGHT
                         ]
         else:
@@ -127,8 +131,8 @@ CREATE TABLE IF NOT EXISTS albumresult (
   catalog text NOT NULL,
   asset integer NOT NULL,
   title text NOT NULL,
-  artist text,
-  publisher text,
+  artist integer,
+  publisher integer,
   year integer,
   description text,
   cover_url text,
@@ -160,7 +164,7 @@ CREATE TABLE IF NOT EXISTS trackresult (
   play_count integer,
   FOREIGN KEY (artist)
     REFERENCES artist (id)
-    ON DELETE CASCADE,
+    ON DELETE CASCADE
 );
 """,
 """
@@ -193,8 +197,8 @@ CREATE TABLE IF NOT EXISTS albumtags (
   id integer PRIMARY KEY,
   albumresult integer NOT NULL,
   tag integer NOT NULL,
-  FOREIGN KEY (result)
-    REFERENCES result (id)
+  FOREIGN KEY (albumresult)
+    REFERENCES albumresult (id)
     ON DELETE CASCADE,
   FOREIGN KEY (tag)
     REFERENCES tag (id)
@@ -206,8 +210,8 @@ CREATE TABLE IF NOT EXISTS tracktags (
   id integer PRIMARY KEY,
   trackresult integer NOT NULL,
   tag integer NOT NULL,
-  FOREIGN KEY (result)
-    REFERENCES result (id)
+  FOREIGN KEY (trackresult)
+    REFERENCES trackresult (id)
     ON DELETE CASCADE,
   FOREIGN KEY (tag)
     REFERENCES tag (id)

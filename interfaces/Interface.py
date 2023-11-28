@@ -27,14 +27,16 @@ class DatabaseInterface:
         self.c = self.db.cursor()
         
 
-from bs4 import BeautifulSoup
 import requests
+
+from bs4 import BeautifulSoup
+from user_agent import generate_user_agent
 
 
 class WebInterface:
 
     def __init__(self):
-        self.useragent = ""
+        self.useragent = generate_user_agent()
 
     def html_encode(self, query: str) -> str:
         query = query.replace(" - ", " ")

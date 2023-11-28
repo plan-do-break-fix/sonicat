@@ -4,13 +4,9 @@
 
 
 
-from bs4 import BeautifulSoup
-import requests
 import shutil
 import sqlite3
-from typing import List
 
-from util.NameUtility import NameUtility
 
 class DatabaseInterface:
 
@@ -31,111 +27,66 @@ class DatabaseInterface:
         self.c = self.db.cursor()
         
 
+from bs4 import BeautifulSoup
+import requests
 
 
 class WebInterface:
 
     def __init__(self):
-        pass
-        #self.names = NameUtility.Transform()
+        self.useragent = ""
 
-    def encode(self, query: str) -> str:
+    def html_encode(self, query: str) -> str:
         query = query.replace(" - ", " ")
         return "%20".join(query.split(" "))
+    
+    def headers(self, useragent: str) -> str:
+        return {"User-Agent": useragent}
 
-    def get_html(self, url: str) -> str:
-        resp = requests.get(url)
+    def get_content(self, url: str) -> str:
+        resp = requests.get(url, headers=self.headers(self.useragent))
         try:
             if resp.status_code == 200:
                 return resp.content
-            else:
+            elif 300 <= resp.status_code < 400:
                 pass
-        except:
-            pass
+            elif 400 <= resp.status_code < 500:
+                pass
+            elif 500 <= resp.status_code < 600:
+                pass
+            else:
+                raise requests.HTTPError
+        except ConnectionError:
+            return e
+        except requests.HTTPError as e:
+            return e
+        except requests.TooManyRedirects:
+            return e
+        except TimeoutError:
+            return e
         finally:
-            pass
-        return False
+            print("How did you get here?")
+            raise RuntimeError
+
+
+    def retry(self, url):
+        pass
+
 
     def domain_from_url(self, url: str) -> str:
+        """
+        Returns "<domain>.<tld>" from a URL. Returns empty string if input does
+        not match pattern r"\w+\.\w+\/".
+        """
         if url.startswith("http"):
             url = url.split("//")[1]
         if url.startswith("www"):
             url = url[4:]
         if url.endswith("/"):
             url = url[:-1]
-        if not "/" in url:
-            return url
-        else:
-            return url.split("/")[0]
+        url = url.split("/")[0] if "/" in url else url
+        return url if "." in url else ""
     
-    def description_by_tag_attrs(self, soup: BeautifulSoup) -> List[str]:
-        body, description = soup.find("body"), []
-        tags = ["div", "p"]
-        attributes = ["class", "id", "itemprop"]
-        values = ["desc", "copy-content"]
-        result_lists = [body.find_all(_tag) for _tag in tags]
-        all_results = [_r for _rl in result_lists for _r in _rl]
-        for result in all_results:
-            for _attr in attributes:
-                if _attr not in result.attrs.keys():
-                    continue
-                for _val in values:
-                    if _val in result.attrs[_attr]:
-                        description.append(result.text)
-        return description
-
-
-    def contents_from_description(self, soup: BeautifulSoup) -> List[str]:
-        pass
-
-    def content_section_tag(self, soup: BeautifulSoup) -> List[BeautifulSoup]:
-        pass
-
-    def contents_from_tag(self, tag: BeautifulSoup) -> List[str]:
-        pass
-
     def show_more():
         pass
-
-    def preview_images_by_alt_text(self, cname: str,
-                                         soup: BeautifulSoup
-                                         ) -> List[str]:
-        _, product, _ = NameUtility.divide_cname(cname)
-        body, candidates = soup.find("body"), []
-        if " - " in product:
-            prod_names = product.split(" - ")
-        else:
-            prod_names = []
-        imgs_w_alt = [_i for _i in body.find_all("img")
-                      if "alt" in _i.attrs.keys()
-                      ]
-        for _img in imgs_w_alt:
-            if product == _img.attrs.alt:
-                candidates.append(_img)
-                continue
-            for _name in prod_names:
-                if _name in _img.attrs.alt:
-                    candidates.append(_img)
-        return candidates
-
-    #def preview_images_by_fname(self, cname: str,
-    #                                  soup: BeautifulSoup
-    #                                  ) -> List[str]:
-    #    _, product, _ = self.names.divide_cname(cname)
-    #    candidates = []
-    #    if " - " in product:
-    #        prod_names = product.split(" - ")
-    #    else:
-    #        prod_names = []
-    #    prod_names.append(product)
-    #    name_forms = [_form for _list in
-    #                  self.names.name_forms()
-    #                  for _form in _list]
-    #    all_imgs = soup.find_all("img")
-    #    for _img in all_imgs:
-    #        for _form in name_forms:
-    #            if _form in _img.attrs.src.split("/")[-1]:
-    #                candidates.append(_img)
-    #    return candidates
-
 

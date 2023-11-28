@@ -96,12 +96,14 @@ class Client(ApiClient):
         res = ParsedTrack(title=rawresult.title)
       # artist
         if rawresult.artists and len(rawresult.artists) == 1:
-            res.artist = rawresult.artists[0]
+            res.artist = rawresult.artists[0].name
       # duration
-        if "duration" not in rawresult.data.keys():
+        if any(["duration" not in rawresult.data.keys(),
+                ":" not in rawresult.data["duration"]]):
             res.duration = 0
-        min_str, sec_str = rawresult.data["duration"].split(":")
-        res.duration = int(min_str) * 60 + int(sec_str)
+        else:
+            min_str, sec_str = rawresult.data["duration"].split(":")
+            res.duration = int(min_str) * 60 + int(sec_str)
       #
         return res
         
@@ -120,7 +122,7 @@ CREATE TABLE IF NOT EXISTS albumresult (
   cover_url text,
   country text,
   api_id integer,
-  url text,
+  api_url text,
   FOREIGN KEY (artist)
     REFERENCES artist (id)
     ON DELETE CASCADE,
@@ -132,6 +134,7 @@ CREATE TABLE IF NOT EXISTS albumresult (
 """
 CREATE TABLE IF NOT EXISTS trackresult (
   id integer PRIMARY KEY,
+  catalog text NOT NULL,
   file integer NOT NULL,
   title text NOT NULL,
   ordinal text,
@@ -179,6 +182,25 @@ CREATE TABLE IF NOT EXISTS albumtags (
     REFERENCES tag (id)
     ON DELETE CASCADE
 );
+""",
+"""
+CREATE TABLE IF NOT EXISTS format (
+  id integer PRIMARY KEY,
+  name text NOT NULL
+);
+""",
+"""
+CREATE TABLE IF NOT EXISTS albumformats (
+  id integer PRIMARY KEY,
+  result integer NOT NULL,
+  format integer NOT NULL,
+  FOREIGN KEY (result)
+    REFERENCES result (id)
+    ON DELETE CASCADE,
+  FOREIGN KEY (format)
+    REFERENCES format (id)
+    ON DELETE CASCADE
+);
 """
 ]
 
@@ -204,7 +226,7 @@ class Data(DatabaseInterface):
         if res.formats:
             for format in res.formats:
                 format_id = self.get_cached_format_id_with_insertion(format)
-                self.new_result_format(result_id, format_id)
+                self.new_album_format(result_id, format_id)
         if res.tracks and len(res.tracks) == len(file_ids):
             for _i, _t in enumerate(res.tracks):
                 file_id = file_ids[_i]
@@ -222,7 +244,7 @@ class Data(DatabaseInterface):
         self.db.commit()
 
     def new_album_result(self, catalog, asset_id, res: ParsedAlbum) -> str:
-        query = "INSERT INTO result (catalog, asset, title"
+        query = "INSERT INTO albumresult (catalog, asset, title"
         arguments = [catalog, asset_id, res.title]
         if res.artist:
             artist_id = self.get_cached_artist_id_with_insertion(res.artist)
@@ -244,7 +266,7 @@ class Data(DatabaseInterface):
         if res.api_id:
             query += ", api_id"
             arguments.append(res.api_id)
-        if res.url:
+        if res.api_url:
             query += ", api_url"
             arguments.append(res.api_url)
         query += f") VALUES (?{',?' * (len(arguments)-1)});"
@@ -328,13 +350,13 @@ class Data(DatabaseInterface):
                        (result_id, tag_id))
         return True
     
-    def new_result_format(self, result_id, format_id):
-        self.c.execute("INSERT INTO resultformats (result, format) VALUES (?,?)",
+    def new_album_format(self, result_id, format_id):
+        self.c.execute("INSERT INTO albumformats (result, format) VALUES (?,?)",
                        (result_id, format_id))
         return True
     
     def all_asset_ids_by_catalog(self, catalog):
-        self.c.execute("SELECT asset FROM result WHERE catalog = ?;", (catalog,))
+        self.c.execute("SELECT asset FROM albumresult WHERE catalog = ?;", (catalog,))
         return [_i[0] for _i in self.c.fetchall()]
     
     def all_failed_searches_by_catalog(self, catalog):
@@ -342,6 +364,6 @@ class Data(DatabaseInterface):
         return [_i[0] for _i in self.c.fetchall()]
 
     def all_results_by_asset(self, asset_id, catalog):
-        self.c.execute("SELECT * FROM results WHERE asset = ? AND catalog = ?",
+        self.c.execute("SELECT * FROM albumresult WHERE asset = ? AND catalog = ?",
                        (asset_id, catalog))
         return self.c.fetchall()

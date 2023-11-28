@@ -137,7 +137,7 @@ CREATE TABLE IF NOT EXISTS albumresult (
   description text,
   cover_url text,
   country text,
-  url text,
+  api_url text,
   listener_count integer,
   play_count integer,
   FOREIGN KEY (artist)
@@ -157,7 +157,6 @@ CREATE TABLE IF NOT EXISTS trackresult (
   ordinal text,
   artist text,
   duration integer,
-  lyrics text,
   description text,
   url text,
   listener_count integer,
@@ -228,6 +227,8 @@ class Data(DatabaseInterface):
             self.c.execute(_query)
         self.db.commit()
         self.tag_cache = {}
+        self.artist_cache = {}
+        self.publisher_cache = {}
 
     def record_result(self, catalog, asset_id, file_ids, res: ParsedAlbum):
         result_id = self.new_album_result(catalog, asset_id, res)
@@ -280,7 +281,7 @@ class Data(DatabaseInterface):
         if res.country:
             query += ", country"
             arguments.append(res.country)
-        if res.url:
+        if res.api_url:
             query += ", api_url"
             arguments.append(res.api_url)
         if res.listener_count:
@@ -304,9 +305,6 @@ class Data(DatabaseInterface):
             artist_id = self.get_cached_artist_id_with_insertion(res.artist)
             query += ", artist"
             arguments.append(artist_id)
-        if res.lyrics:
-            query += ", lyrics"
-            arguments.append(res.lyrics)
         if res.duration:
             query += ", duration"
             arguments.append(res.duration)
@@ -367,11 +365,11 @@ class Data(DatabaseInterface):
                        (result_id, tag_id))
 
     def all_asset_ids_by_catalog(self, catalog) -> List[str]:
-        self.c.execute("SELECT asset FROM result WHERE catalog = ?;",
+        self.c.execute("SELECT asset FROM albumresult WHERE catalog = ?;",
                        (catalog,))
         return [_i[0] for _i in self.c.fetchall()]
     
-    def all_failed_searched_by_catalog(self, catalog) -> List[str]:
+    def all_failed_searches_by_catalog(self, catalog) -> List[str]:
         self.c.execute("SELECT asset FROM failedsearch WHERE catalog = ?;",
                        (catalog,))
         return [_i[0] for _i in self.c.fetchall()]

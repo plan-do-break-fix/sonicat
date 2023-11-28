@@ -25,9 +25,9 @@ class Data(App):
         return self.catalog[catalog].all_file_data_by_asset(asset_id, filetype_id)
 
     def multidisc_folders(self, catalog, asset_id, filetype="wav") -> bool:
-        """Returns True if all audio files exist in "/CD[0-9]{1,2}/" subdirs."""
+        """Returns True if all audio file dirnames start with "/CD"."""
         file_data = self.asset_audio_file_data(catalog, asset_id)
-        return all(["/CD" in _d["dirname"] for _d in file_data])
+        return all(["/CD" in _d["dirname"] and len(_d["dirname"]) > 3 for _d in file_data])
     
     def disc_number(self, dirname: str) -> str:
         """Returns the integer string of the file's CD subdirectory number."""
@@ -66,6 +66,8 @@ class Data(App):
         """
         file_data = self.asset_audio_file_data(catalog, asset_id)
         file_ids = [_d["id"] for _d in file_data]
+        if not file_ids:
+            return []
         _dtype, dtype_id = "duration", "1"
         durations = self.data.data_values(file_ids, catalog, dtype_id)
         duration_dict = {_d[0]: _d[1] for _d in durations}

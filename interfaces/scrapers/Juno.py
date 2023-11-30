@@ -1,8 +1,6 @@
 
 from bs4 import BeautifulSoup
 from dataclasses import dataclass
-from decimal import Decimal
-import re
 
 from interfaces.scrapers.Scraper import Scraper
 
@@ -186,6 +184,72 @@ class Data(DatabaseInterface):
         self.artist_cache = {}
         self.publisher_cache = {}
 
+    def record_result(self, catalog, asset_id, file_ids, res: ParsedAlbum):
+        result_id = self.new_album_result(catalog, asset_id, res)
+        if res.genre:
+            tag_id = self.get_cached_tag_id_with_insertion(res.genre)
+            self.new_album_tag(result_id, tag_id)
+        if res.tracks and len(res.tracks) == len(file_ids):
+            for _i, _t in enumerate(res.tracks):
+                file_id = file_ids[_i]
+                result_id = self.new_track_result(catalog, file_id, _t)
+        return True
+
+    def record_failed_search(self, catalog, asset_id) -> bool:
+        self.c.execute("INSERT INTO failedsearch (catalog, asset) VALUES (?,?);",
+                       (catalog, asset_id))
+        self.db.commit()
+        return True
+
+    def drop_failed_search(self, catalog, asset_id) -> bool:
+        self.c.execute("DELETE FROM failedsearch WHERE catalog = ? AND asset = ?;",
+                       (catalog, asset_id))
+        self.db.commit()
+        return True
+
+    def new_album_result(self, catalog, asset_id, res: ParsedTrack) -> str:
+        query = "INSERT INTO albumresult (catalog, asset, title"
+        arguments = [catalog, asset_id, res.title]
+        if res.artist:
+            artist_id = self.get_cached_artist_id_with_insertion(res.artist)
+            query += ", artist"
+            arguments.append(artist_id)
+        if res.publisher:
+            publisher_id = self.get_cached_publisher_id_with_insertion(res.publisher)
+            query += ", publisher"
+            arguments.append(publisher_id)
+        if res.year:
+            query += ", year"
+            arguments.append(res.year)
+        if res.api_id:
+            query += ", api_id"
+            arguments.append(res.api_id)
+        query += f") VALUES (?{',?' * (len(arguments)-1)});"
+        self.c.execute(query, arguments)
+        self.c.execute("SELECT last_insert_rowid();")
+        return self.c.fetchone()[0]
+
+    def new_track_result(self, catalog, file_id, res: ParsedTrack) -> str:
+        query = "INSERT INTO trackresult (catalog, file, title"
+        arguments = [catalog, file_id, res.title]
+        if res.ordinal:
+            query += ", ordinal"
+            arguments.append(res.ordinal)
+        if res.artist:
+            artist_id = self.get_cached_artist_id_with_insertion(res.artist)
+            query += ", artist"
+            arguments.append(artist_id)
+        if res.duration:
+            query += ", duration"
+            arguments.append(res.duration)
+        if res.tempo:
+            query += ", tempo"
+            arguments.append(res.tempo)
+        query += f") VALUES (?{',?' * (len(arguments)-1)});"
+        self.c.execute(query, arguments)
+        self.c.execute("SELECT last_insert_rowid();")
+        return self.c.fetchone()[0]
+
     def get_cached_tag_id_with_insertion(self, tag: str) -> str:
         tag = tag.lower()
         if tag not in self.tag_cache:
@@ -221,26 +285,3 @@ class Data(DatabaseInterface):
                 result = self.c.fetchone()
             self.publisher_cache[publisher] = result[0]
         return self.publisher_cache[publisher]
-
-    def record_result(self, catalog, asset_id, file_ids, res: ParsedAlbum):
-        result_id = self.new_album_result(catalog, asset_id, res)
-        if res.genre:
-            tag_id = self.get_cached_tag_id_with_insertion(res.genre)
-            self.new_album_tag(result_id, tag_id)
-        if res.tracks and len(res.tracks) == len(file_ids):
-            for _i, _t in enumerate(res.tracks):
-                file_id = file_ids[_i]
-                result_id = self.new_track_result(catalog, file_id, _t)
-        return True
-
-    def record_failed_search(self, catalog, asset_id) -> bool:
-        self.c.execute("INSERT INTO failedsearch (catalog, asset) VALUES (?,?);",
-                       (catalog, asset_id))
-        self.db.commit()
-        return True
-
-    def drop_failed_search(self, catalog, asset_id) -> bool:
-        self.c.execute("DELETE FROM failedsearch WHERE catalog = ? AND asset = ?;",
-                       (catalog, asset_id))
-        self.db.commit()
-        return True

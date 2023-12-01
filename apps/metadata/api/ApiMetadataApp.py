@@ -1,23 +1,19 @@
 
 
 from httpcore import NetworkError
-from apps.ConfiguredApp import App
 from apps.ConfiguredApp import SimpleApp
 from apps.Operations import Data as DataOps
-from interfaces.database.Catalog import CatalogInterface
-from interfaces.api.Client import ApiClient
-from util import Logs
 from util.NameUtility import NameUtility
 
 
-class ApiApp(SimpleApp):
+class ApiMetadataApp(SimpleApp):
 
     def __init__(self, sonicat_path: str, api_name: str) -> None:
         super().__init__(sonicat_path, "metadata", f"{api_name}Metadata")
         self.dataops = DataOps(sonicat_path)
         self.load_catalog_replicas()
         self.api_name = api_name
-        self.log.info(f"{self.cfg.name} Application Initialization Successful")
+        self.log.info(f"{self.app_name} Application Initialization Successful")
 
     def process_asset(self, catalog, asset_id) -> bool:
         tracklist = self.dataops.asset_track_list("releases", asset_id)
@@ -100,24 +96,24 @@ class ApiApp(SimpleApp):
 from interfaces.api.Discogs import Client as DiscogsClient
 from interfaces.api.Discogs import Data as DiscogsData
 
-class Discogs(ApiApp):
+class Discogs(ApiMetadataApp):
 
     def __init__(self, sonicat_path: str) -> None:
         super().__init__(sonicat_path,
                          api_name="Discogs"
                          )
         self.cl = DiscogsClient(sonicat_path)
-        self.data = DiscogsData(f"{self.cfg.data}/pages/DiscogsMetadata.sqlite")
+        self.data = DiscogsData(f"{sonicat_path}/data/metadata/DiscogsMetadata.sqlite")
         
 
 from interfaces.api.Lastfm import Client as LastfmClient
 from interfaces.api.Lastfm import Data as LastfmData
 
-class Lastfm(ApiApp):
+class Lastfm(ApiMetadataApp):
 
     def __init__(self, sonicat_path: str) -> None:
         super().__init__(sonicat_path,
                          api_name="Lastfm"
                          )
         self.cl = LastfmClient(sonicat_path)
-        self.data = LastfmData(f"{self.cfg.data}/pages/LastfmMetadata.sqlite")
+        self.data = LastfmData(f"{sonicat_path}/data/metadata/LastfmMetadata.sqlite")

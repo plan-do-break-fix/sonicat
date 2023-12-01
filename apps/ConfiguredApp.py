@@ -16,6 +16,7 @@ class SimpleApp:
         self.cfg["sonicat_path"] = sonicat_path
         if app_type == "catalog":
             app_name = self.cfg["catalogs"][app_name]["moniker"]
+        self.app_name = app_name
         self.temp = f"/tmp/sonicat-{app_name}"
         logpath = f"{sonicat_path}/log/{app_type}/"
         self.log = Logs.initialize_logging(app_name, "debug", logpath)
@@ -27,9 +28,9 @@ class SimpleApp:
         """
         if self.replicas:
             return False
-        for catalog_name in list(self.config["catalogs"].keys()):
+        for catalog_name in list(self.cfg["catalogs"].keys()):
             moniker = self.cfg['catalogs'][catalog_name]['moniker']
-            dbpath = f"{self.cfg.sonicat_path}/data/catalog/{moniker}.sqlite"
+            dbpath = f"{self.cfg['sonicat_path']}/data/catalog/{moniker}.sqlite"
             self.replicas[catalog_name] = ReadInterface(dbpath)
         self.log.debug(f"Established connection to catalog replicas.")
         return True

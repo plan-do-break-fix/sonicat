@@ -1,7 +1,6 @@
 
 
 from apps.ConfiguredApp import SimpleApp
-from interfaces.database.Catalog import CatalogInterface
 from interfaces.database.LibrosaData import DataInterface
 import re
 
@@ -13,8 +12,8 @@ from decimal import Decimal
 class Data(SimpleApp):
 
     def __init__(self, sonicat_path) -> None:
-        super().__init__(sonicat_path, "")
-        self.data = DataInterface(f"{self.cfg.data}/analysis/LibrosaAnalysis-ReadReplica.sqlite")
+        super().__init__(sonicat_path, "analysis", "DataOperations")
+        self.data = DataInterface(f"{sonicat_path}/data/analysis/LibrosaAnalysis-ReadReplica.sqlite")
         self.load_catalog_replicas()
 
     def asset_audio_file_data(self, catalog, asset_id, filetype="wav") -> List[Dict]:

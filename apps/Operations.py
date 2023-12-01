@@ -1,6 +1,6 @@
 
 
-from apps.ConfiguredApp import App
+from apps.ConfiguredApp import SimpleApp
 from interfaces.database.Catalog import CatalogInterface
 from interfaces.database.LibrosaData import DataInterface
 import re
@@ -10,19 +10,16 @@ from decimal import Decimal
 
 
 
-class Data(App):
+class Data(SimpleApp):
 
     def __init__(self, sonicat_path) -> None:
         super().__init__(sonicat_path, "")
-        self.catalog = {
-            #"assets": CatalogInterface(f"{self.cfg.data}/catalog/AssetCatalog.sqlite"),
-            "releases": CatalogInterface(f"{self.cfg.data}/catalog/ReleaseCatalog-ReadReplica.sqlite")
-        } 
         self.data = DataInterface(f"{self.cfg.data}/analysis/LibrosaAnalysis-ReadReplica.sqlite")
+        self.load_catalog_replicas()
 
     def asset_audio_file_data(self, catalog, asset_id, filetype="wav") -> List[Dict]:
-        filetype_id = self.catalog[catalog].filetype_id(filetype)
-        return self.catalog[catalog].all_file_data_by_asset(asset_id, filetype_id)
+        filetype_id = self.replicas[catalog].filetype_id(filetype)
+        return self.replicas[catalog].all_file_data_by_asset(asset_id, filetype_id)
 
     def multidisc_folders(self, catalog, asset_id, filetype="wav") -> bool:
         """Returns True if all audio file dirnames start with "/CD"."""
@@ -48,8 +45,10 @@ class Data(App):
                 index = int(re.search(r"(?<=\d[_ \-\.])\d{1,3}", _t[0].strip()).group())
                 indexed_tracks.append((disc, index, _t))
         elif re.search(r"^[a-zA-Z][_\-\. ]?\d{1,3}", tracklist[0][0]):
+            for _t in tracklist:
                 disc = _t[0]
-                index = int(re.search(r"(?<=[a-zA-Z_\-\. ])\d{1,3}", _t[0].strip()).group())
+                index_res = re.search(r"(?<=[a-zA-Z_\-\. ])\d{1,3}", _t[0].strip())
+                index = int(index_res.group()) if index_res else ""
                 indexed_tracks.append((disc, index, _t))
         elif re.search(r"^\d{1,3}", tracklist[0][0]):
             for _t in tracklist:

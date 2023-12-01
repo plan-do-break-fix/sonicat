@@ -74,6 +74,18 @@ class FileUtility:
             return ""
         return ext
 
+    @staticmethod
+    def export_asset_to_temp(cname, managed_path, temp_path) -> bool:
+        if not shutil.os.path.isdir(temp_path):
+            shutil.os.makedirs(temp_path, exist_ok=True)
+        label_dir = NameUtility.label_dir_from_cname(cname)
+        archive_path = f"{managed_path}/{label_dir}/{cname}.rar"
+        shutil.copyfile(archive_path, f"{temp_path}/{cname}.rar")
+        Archive.restore(f"{temp_path}/{cname}.rar")
+        shutil.os.remove(f"{temp_path}/{cname}.rar")
+        return True
+
+
     #@staticmethod
     #def move_asset(target: str, destination: str) -> bool:
     #    if not all([any([shutil.os.path.isfile(target),
@@ -91,6 +103,12 @@ class FileUtility:
     #        raise ValueError
     #    shutil.copyfile(target, destination)
     #    return True
+
+
+
+# TODO  THIS CAN GO SOMEWHERE ELSE, like FileUtility
+#  # Export
+
 
 
 import subprocess

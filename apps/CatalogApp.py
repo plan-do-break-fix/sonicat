@@ -1,35 +1,29 @@
 #!/usr/bin/python3
 
 import shutil
-from typing import List
 
-from apps.ConfiguredApp import App
-from interfaces.database.Catalog import CatalogInterface
+from apps.ConfiguredApp import SimpleApp
 from util.FileUtility import Archive, Cleanse, FileUtility
 from util.NameUtility import NameUtility
-from util import Logs
 
 
 
-class Catalog(App):
+class CatalogApp(SimpleApp):
 
-    def __init__(self, sonicat_path: str, app_key: str) -> None:
-        super().__init__(sonicat_path, app_key)
-        self.cfg.log += "/catalog"
-        self.log = Logs.initialize_logging(self.cfg)
+    def __init__(self, sonicat_path: str, catalog: str) -> None:
+        self.catalog_name = catalog
+        self.moniker = self.cfg["catalogs"][catalog]["moniker"]
+        super().__init__(sonicat_path, "catalog", self.moniker)
         self.log.info(f"BEGIN {self.cfg.name} application initialization")
         self.cln = Cleanse(f"{sonicat_path}/config/file-blacklist.yaml")
-        #if shutil.os.path.exists(self.cfg.temp):
-        #    shutil.rmtree(self.cfg.temp)
-        #shutil.os.mkdir(self.cfg.temp)   #TODO This probably should be mkdirs
-        self.db_path = f"{self.cfg.data}/catalog/{self.cfg.name}.sqlite"
-        self.db = CatalogInterface(self.db_path)
-        self.log.debug(f"Connected to database {self.db_path}")
+        self.intake = self.cfg["catalogs"][catalog]["intake"]
+        self.managed = self.cfg["catalogs"]
+        self.load_catalog_writable(catalog)
         self.log.info(f"END application initialization: Success")
 
   # Managed Asset Intake
     def managed_intake(self, cname: str) -> bool:
-        path = f"{self.cfg.intake}/{cname}"
+        path = f"{self.intake}/{cname}"
         self.log.info(f"BEGIN managed intake of {path}")
         if not self.managed_intake_precheck(path):
             self.log.error(f"Intake Aborted - Precheck Validation Failure")
@@ -47,10 +41,10 @@ class Catalog(App):
         if not file_data:
             self.log.error(f"Intake failure during inventory of asset files")
             return False
-        if not self.db.new_asset(cname, label_id, managed=1):
+        if not self.writable[self.catalog_name].new_asset(cname, label_id, managed=1):
             self.log.error(f"Intake failure during asset insertion")
             return False
-        asset_id = self.db.asset_id(cname)
+        asset_id = self.writable[self.catalog_name].asset_id(cname)
         if not self.insert_asset_files(asset_id, file_data):
             self.log.error(f"Intake failure during asset file insertion")
             return False
@@ -58,10 +52,10 @@ class Catalog(App):
         if not self.archive_managed_asset(path, cname, label_dir):
             self.log.error(f"Intake failure during archiving of asset")
             return False
-        self.db.commit()
+        self.writable[self.catalog_name].commit()
         self.log.info("END managed intake: Success")
         return True
-
+    
     def managed_intake_precheck(self, path: str) -> bool:
         self.log.debug("BEGIN precheck validation")
         if not shutil.os.path.isdir(path):
@@ -71,7 +65,7 @@ class Catalog(App):
         if not NameUtility.name_is_canonical(cname):
             self.log.error("Validation Failure - Target is not canonically named")
             return False
-        if self.db.asset_exists(cname):
+        if self.writable[self.catalog_name].asset_exists(cname):
             self.log.warning("Validation Failure - Asset already exists in catalog")
             return False
         self.log.debug("END precheck validation: Success")
@@ -148,24 +142,14 @@ class Catalog(App):
                 if not _ext in filetype_cache.keys():
                     filetype_cache[_ext] = self.filetype_id_with_insert(_ext)
                 filetype_id = filetype_cache[_ext]
-                self.db.new_file(asset_id,
-                                 _f["basename"],
-                                 _f["dirname"],
-                                 _f["size"],
-                                 filetype=filetype_id)
-            elif not _ext:
-                self.db.new_extensionless_file(asset_id,
-                                               _f["basename"],
-                                               _f["dirname"],
-                                               _f["size"])
+            else:
+                filetype_id = ""
+            self.db.new_file(asset_id,
+                             _f["basename"],
+                             _f["dirname"],
+                             _f["size"],
+                             filetype_id)
             self.log.debug(f"New file inserted: {_f['dirname']}/{_f['basename']}")
-        return True
- 
-    def export_database(self, out_path) -> bool:
-        if not self.check_database():
-            raise RuntimeWarning
-        out_path = self.cfg.export if not out_path else out_path
-        shutil.copyfile(self.db_path, out_path)
         return True
 
   # Purge
@@ -200,9 +184,9 @@ class Catalog(App):
                             for _a in FileUtility.get_canonical_assets(
                             f"{self.cfg.managed}/{_label}/")
                             ]
-            expected_assets = self.db.asset_cnames_by_label(
-                                  self.db.label_id_by_dirname(_label)
-                                  )
+            label_id = self.db.label_id_by_dirname(_label)
+            all_asset_data = self.db.asset_data_by_label(label_id)
+            expected_assets = [_a["name"] for _a in all_asset_data]
             if not self.crosscheck_lists(expected_assets, found_assets):
                 return False
         return True
@@ -225,79 +209,4 @@ class Catalog(App):
         for _b in unique_in_b:
             print(f"  {_b}")
 
-
-from contextlib import closing
-import json
-from yaml import load, SafeLoader
-
-class Build(Catalog):
-
-    def __init__(self, sonicat_path: str, app_key: str) -> None:
-        super().__init__(sonicat_path, app_key)
-        self.log.info("BEGIN CATALOG BUILD MODE")
-        self.log.setLevel(Logs.LOOKUP["info"])
-        self.log.info("Log level changed to INFO")
-        self.ban = self.load_blacklist(sonicat_path)
-
-    def load_blacklist(self, sonicat_path: str) -> dict:
-        with closing(open(f"{sonicat_path}/catalog/file-blacklist.yaml", "r")) as _f:
-            return load(_f.read(), SafeLoader)
-
-    def read_asset_survey_json(self, path: str) -> bool:
-        with closing(open(path, "r")) as _f:
-            return json.load(_f)
-        
-    def clear_invalid_filetypes(self, file_data: dict) -> dict:
-        for _f in file_data.keys():
-            name, ext = file_data[_f]["basename"], file_data[_f]["filetype"]
-            prefixes = [".", "_.", "._."]
-            if any([ext == "",
-                    ext == name,
-                    " " in ext,
-                    any([f"{_pre}{ext}" == name for _pre in prefixes])
-                    ]):
-                file_data[_f]["filetype"] = ""
-        return file_data
-        
-    def managed_intake_from_survey_json(self, json_path: str) -> bool:
-        cname = json_path.split("/")[-1].replace(".json", "")
-        label_id = self.label_id_with_insert(cname)
-        file_data = self.read_asset_survey_json(json_path)
-        self.clear_invalid_filetypes(file_data)
-        self.db.new_asset(cname, label_id, managed=1)
-        asset_id = self.db.asset_id(cname)
-        self.insert_asset_files(asset_id, file_data)
-        self.db.commit()
-        self.log.info(f"New asset inserted: {cname}")
-        return True
-
-    def gather_json(self, path: str):
-        out = []
-        for (_r, _, _fl) in shutil.os.walk(path):
-            _json = [f"{_r}/{_f}" for _f in _fl if _f.endswith(".json")]
-            out += _json
-        return out
-
-    def run(self, path: str):
-        self.log.info(f"BEGIN database build for {self.cfg.name}")
-        total, current = len(self.gather_json(path)), 0
-        failed = []
-        for _j in self.gather_json(path):
-            current += 1
-            print(f"Running job {current}/{total}")
-            if not self.managed_intake_from_survey_json(_j):
-                cname = _j.split("/")[-1].replace(".json", "")
-                failed.append(cname)
-        self.log.info("Database build complete")
-        self.log.info("BEGIN database validation")
-        if not self.check_database():
-            self.log.error("Database validation failed")
-            raise RuntimeWarning()
-        self.log.info("END database validation: Success")
-        self.log.info("END database build: Success")
-        if failed:
-            with open(f"{self.cfg.export}/noncompliant-assets.csv", "w") as _out:
-                _out.write("\n".join(failed))
-            self.log.info("Failed intake report exported")
-        self.log.info("END CATALOG BUILD MODE")
 

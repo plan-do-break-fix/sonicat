@@ -1,9 +1,8 @@
 
 from typing import Dict, List
 
-from apps.ConfiguredApp import App
+from apps.ConfiguredApp import SimpleApp
 from interfaces.Interface import DatabaseInterface
-from interfaces.Catalog import CatalogInterface
 from interfaces.Tokens import TokensInterface
 from util import Logs
 from util import Parser
@@ -66,16 +65,6 @@ class Interface(DatabaseInterface):
         if finalize:
             self.db.commit()
         return True
-    
-    #def is_file_parsed(self, file_id: str, catalog: str) -> str:
-    #    self.c.execute("SELECT id FROM data WHERE file = ? and catalog = ?;",
-    #                   (file_id, catalog))
-    #    return bool(self.c.fetchone())
-    
-    #def are_asset_files_parsed(self, asset_id: str, catalog: str) -> bool:
-    #    self.c.execute("SELECT id FROM log WHERE asset = ?;",
-    #                   (asset_id, catalog))
-    #    return bool(self.c.fetchone())
 
     def parsed_asset_ids(self, catalog: str) -> List[str]:
         self.c.execute("SELECT DISTINCT asset FROM log WHERE catalog = ?;",
@@ -83,12 +72,11 @@ class Interface(DatabaseInterface):
         return [_i[0] for _i in self.c.fetchall()]
 
 
-class PathParser(App):
+class PathParser(SimpleApp):
 
-    def __init__(self, sonicat_path: str, app_key: str) -> None:
-        super().__init__(sonicat_path, app_key)
-        catalog_db_path = f"{self.cfg.data}/catalog/{self.cfg.name}-ReadReplica.sqlite"
-        self.catalog = CatalogInterface(catalog_db_path)
+    def __init__(self, sonicat_path: str) -> None:
+        super().__init__(sonicat_path, "analysis", "FilePathParser")
+        self.load_catalog_replicas()
         self.cfg.name = "PathParser"
         self.cfg.log += "/tokens"
         self.log = Logs.initialize_logging(self.cfg)
@@ -102,14 +90,10 @@ class PathParser(App):
         tokens_db_path = f"{self.cfg.data}/tokens/Tokens.sqlite"
         self.tokens = TokensInterface(tokens_db_path)
         self.log.debug("Connected to Tokens interface")
-        self.audio_type_ids = [self.catalog.filetype_id(_ext) 
-                           for _ext in self.parser.audio_exts 
-                           if self.catalog.filetype_exists(_ext)]
-        self.target_asset_ids = self.all_unparsed_assets()
         self.log.info(f"END application initialization: Success")
 
-    def parse_path(self, file_id) -> bool:
-        path = self.catalog.file_path(file_id)
+    def parse_path(self, catalog: str, file_id) -> bool:
+        path = self.replicas[catalog].file_path(file_id)
         result: Parser.ParsedAudioFilePath = self.parser.parse_path(path)
         self.tokens.add_file_tokens(file_id,
                                     self.cfg.moniker,
@@ -122,38 +106,41 @@ class PathParser(App):
                                    finalize=False)
         return True
 
-    def parse_asset_file_paths(self, asset_id: str) -> bool:
-        file_ids = self.catalog.file_ids_by_asset(asset_id)
+    def parse_asset_file_paths(self, catalog: str, asset_id: str) -> bool:
+        file_ids = self.replicas[catalog].file_ids_by_asset(asset_id)
         for _fid in file_ids:
-            if not self.catalog.file_filetype_id(_fid) in self.audio_type_ids:
+            if not self.replicas[catalog].file_filetype_id(_fid) in self.audio_type_ids:
                 continue
-            self.parse_path(_fid)
+            self.parse_path(catalog, _fid)
         self.tokens.db.commit()
         self.record.log_asset_parse(asset_id, self.cfg.moniker, finalize=True)
         return True
 
-    def all_unparsed_assets(self) -> List[str]:
+    def all_unparsed_assets(self, catalog) -> List[str]:
         parsed_assets = [str(_i) for _i
                          in self.record.parsed_asset_ids(self.cfg.moniker)]
-        return self.catalog.all_asset_ids(excluding=parsed_assets)
+        return self.replicas[catalog].all_asset_ids(excluding=parsed_assets)
 
-    def run(self):
+    def run(self, catalog: str):
+        self.audio_type_ids = [self.replicas[catalog].filetype_id(_ext) 
+                               for _ext in self.parser.audio_exts 
+                               if self.replicas[catalog].filetype_exists(_ext)]
+        self.target_asset_ids = self.all_unparsed_assets()
         #target_asset_id = self.asset_with_unparsed_files()
         while self.target_asset_ids:
             target_id = self.target_asset_ids.pop()
-            cname = self.catalog.asset_cname(target_id)
+            cname = self.replicas[catalog].asset_cname(target_id)
             self.log.info(f"BEGIN parsing audio file paths in {cname}")
-            self.parse_asset_file_paths(target_id)
+            self.parse_asset_file_paths(catalog, target_id)
             self.log.info(f"END asset file path parsing: Success")
         return True
     
 
-class TokenAnalysis(App):
+class TokenAnalysis(SimpleApp):
 
-    def __init__(self, sonicat_path: str, app_key: str) -> None:
-        super().__init__(sonicat_path, app_key)
-        catalog_db_path = f"{self.cfg.data}/catalog/{self.cfg.name}.sqlite"
-        self.catalog = CatalogInterface(catalog_db_path)
+    def __init__(self, sonicat_path: str) -> None:
+        super().__init__(sonicat_path, "analysis", "TokenAnalysis")
+        self.load_catalog_replicas()
         tokens_db_path = f"{self.cfg.data}/tokens/Tokens.sqlite"
         self.tokens = TokensInterface(tokens_db_path)
 
@@ -181,7 +168,7 @@ class TokenAnalysis(App):
 
     #def assets_with_token(self, token_id: str) -> int:
     #    file_ids = self.tokens.n_files_with_token(token_id, self.cfg.moniker)
-    #    return self.catalog.asset_ids_from_file_ids(file_ids)
+    #    return self.replicas[catalog].asset_ids_from_file_ids(file_ids)
 
     def freq_dict(self) -> Dict[str, int]:
         result = {}

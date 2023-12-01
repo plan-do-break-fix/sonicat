@@ -4,7 +4,7 @@ from time import time
 from typing import List, Tuple
 
 from interfaces.database.LibrosaData import DataInterface
-from apps.ConfiguredApp import App
+from apps.ConfiguredApp import SimpleApp
 from interfaces.Interface import DatabaseInterface
 from util import Logs
 
@@ -134,20 +134,16 @@ class Intercatalog(HarmonicDistanceData):
         return self.c.fetchall()
 
 
-class HarmonicDistance(App):
+class HarmonicDistance(SimpleApp):
 
     # Harmonic Distance is restart-safe, however historical revisionism in the
     # catalog will break things.
 
     def __init__(self, sonicat_path: str) -> None:
-        super().__init__(sonicat_path, "")
-        librosa_analysis_db_path = f"{self.cfg.data}/analysis/LibrosaAnalysis-ReadReplica.sqlite"
-        self.rosa_data = DataInterface(librosa_analysis_db_path)
-        self.cfg.name = "HarmonicDistance"
-        self.cfg.log += "/analysis"
-        self.log = Logs.initialize_logging(self.cfg)
+        super().__init__(sonicat_path, "analysis", "HarmonicDistance")
+        librosa_analysis_replica_path = f"{self.cfg.data}/analysis/LibrosaAnalysis-ReadReplica.sqlite"
+        self.rosa_data = DataInterface(librosa_analysis_replica_path)
         self.log.info(f"Application Initialization Successful")
-        self.sonicat_path = sonicat_path
 
     def harmonic_distance(self, chroma_dist1, chroma_dist2) -> Decimal:
         return sum([(chroma_dist1[_i] - chroma_dist2[_i])**2 
@@ -165,7 +161,7 @@ class HarmonicDistance(App):
     def intracatalog_linear_run(self, catalog):
         timestamp = time()
         self.log.info(f"Initializing data for linear intracatalog run: {catalog}")
-        results = Intracatalog(self.sonicat_path, catalog)
+        results = Intracatalog(self.cfg["sonicat_path"], catalog)
         cdists = self.rosa_data.all_chroma_distributions(catalog)
         all_ids = list(cdists.keys())
         all_ids.sort()

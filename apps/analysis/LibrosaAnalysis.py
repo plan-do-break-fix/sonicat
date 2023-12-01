@@ -5,11 +5,11 @@ import numpy as np
 import shutil
 from typing import List, Tuple
 
-from apps.ConfiguredApp import App, Config
+#from apps.ConfiguredApp import App, Config
+from apps.ConfiguredApp import SimpleApp
 from interfaces.database.LibrosaData import DataInterface
-from interfaces.database.Catalog import CatalogInterface
-from util import Logs
 from util.NameUtility import NameUtility
+from util.FileUtility import FileUtility
 
 
 DATATYPES = [
@@ -19,29 +19,26 @@ DATATYPES = [
     "beat_frames"
     ]
 
-class LibrosaAnalysis(App):
+class LibrosaAnalysis(SimpleApp):
 
     def __init__(self, sonicat_path: str) -> None:
-        super().__init__(sonicat_path, "")
+        super().__init__(sonicat_path, "analysis", "LibrosaAnalysis")
         self.basedir = f"{self.cfg.data}/analysis/"
         self.data = DataInterface(f"{self.basedir}/LibrosaAnalysis.sqlite")
-        self.catalog = {
-            #"assets": CatalogInterface(f"{self.cfg.data}/catalog/AssetCatalog.sqlite"),
-            "releases": CatalogInterface(f"{self.cfg.data}/catalog/ReleaseCatalog-ReadReplica.sqlite")
-        } 
-        self.completed_assets = {_catalog: self.data.completed_assets(_catalog)
-                                 for _catalog in self.catalog_names}
         self.file_type_id_cache = {}
-        self.cfg.log += "/analysis"
-        self.cfg.name = "AudioAnalysis"
-        self.log = Logs.initialize_logging(self.cfg)
+        self.load_catalog_replicas()
+        self.completed_assets = self.get_completed_assets() 
         self.log.info(f"LibrosaAnalysis Application Initialization Successful")
+
+    def get_completed_assets(self):
+        return {_cn: self.data.completed_assets(_cn)
+                for _cn in self.config["catalogs"].keys()}
 
     def get_file_type_id(self, catalog, ext) -> str:
         if catalog not in self.file_type_id_cache.keys():
             self.file_type_id_cache[catalog] = {}
         if ext not in self.file_type_id_cache[catalog].keys():
-            _id = self.catalog[catalog].filetype_id(ext)
+            _id = self.replicas[catalog].filetype_id(ext)
             self.file_type_id_cache[catalog][ext] = _id
         return self.file_type_id_cache[catalog][ext]
 
@@ -67,22 +64,20 @@ class LibrosaAnalysis(App):
         if asset_id in self.completed_assets:
             self.log.debug(f"All wav files for asset ID {asset_id} previously analyzed.")
             return True
-        asset_wav_file_ids = self.catalog[catalog].file_ids_by_asset_and_type(
+        asset_wav_file_ids = self.replicas[catalog].file_ids_by_asset_and_type(
                                asset_id, self.get_file_type_id(catalog, "wav")
                              )
         self.log.debug(f"{len(asset_wav_file_ids)} wav file(s) to analyze in asset.")
-        self.catalog[catalog].export_asset_to_temp(asset_id,
-                                                   self.config["catalogs"][catalog]["path"]["managed"],
-                                                   f"{self.cfg.temp}-{catalog}"
-                                                   )
-        cname = self.catalog[catalog].asset_cname(asset_id)
+        managed_path = self.cfg["catalogs"][catalog]["path"]["managed"]
+        cname = self.replicas[catalog].asset_cname(asset_id)
+        FileUtility.export_asset_to_temp(cname, managed_path, self.temp)
         label_dir = NameUtility.label_dir_from_cname(cname)
         dfile_base_dir = f"{self.basedir}features/{catalog}/{label_dir}/{cname}"
         if not shutil.os.path.isdir(dfile_base_dir):
             shutil.os.makedirs(dfile_base_dir, exist_ok=True)
         for _id in asset_wav_file_ids:
             self.log.debug(f"Analyzing file ID {_id}.")
-            wav_path = f"{self.cfg.temp}-{catalog}/{cname}{self.catalog[catalog].file_path(_id)}"
+            wav_path = f"{self.temp}/{cname}{self.replicas[catalog].file_path(_id)}"
             duration, tempo, beat_frames, chromagram = self.analyze_wav(wav_path)
             cdist = self.chromagram_to_cdist(chromagram)
             self.log.debug("Wav file analysis complete. Writing data to disk.")
@@ -91,7 +86,7 @@ class LibrosaAnalysis(App):
             self.write_chroma_distribution(catalog, _id, cdist)
         self.data.log_completed_asset(catalog, asset_id)
         self.completed_assets[catalog].append(asset_id)
-        shutil.rmtree(f"{self.cfg.temp}-{catalog}/{cname}")
+        shutil.rmtree(f"{self.temp}/{cname}")
         self.log.debug(f"Analysis of asset ID {asset_id} wav files complete.")
 
 
@@ -121,7 +116,7 @@ class LibrosaAnalysis(App):
         return True
 
     def run(self, catalog):
-        all_ids = self.catalog[catalog].all_asset_ids()
+        all_ids = self.replicas[catalog].all_asset_ids()
         assets_to_process = [_id for _id in all_ids if _id not in self.completed_assets[catalog]]
         for _id in assets_to_process:
             self.analyze_asset_wavs(catalog, _id)

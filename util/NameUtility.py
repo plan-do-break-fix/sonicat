@@ -1,5 +1,5 @@
 
-
+import re
 from typing import List, Tuple
 
 #ENG_STOPWORDS = ["and", "in", "of", "the"]
@@ -63,6 +63,20 @@ class NameUtility:
         Return the name of the label directory associated with a canonically-named asset.
         """
         return cname.split(" - ")[0].lower().replace(" ", "_")
+
+    @staticmethod
+    def title_has_media_type_label(title: str) -> bool:
+        return any([_l in title for _l in [" CDM", "CDR", "CDS", " MCD", " EP", " LP"]])
+
+    @staticmethod
+    def drop_media_type_labels(self, title: str) -> str:
+        PATTERNS = [
+            r"\b(MCD|CD(M|M?S|R))\d?\b",
+            r"\b[EL]P\d?\b"
+        ]
+        for _p in PATTERNS:
+            title = re.sub(_p, "", title)
+        return title
 
 
 class Variations(NameUtility):

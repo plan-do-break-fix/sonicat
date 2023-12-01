@@ -2,7 +2,6 @@
 
 
 from apps.metadata.webscraper.ScraperApp import ScraperApp
-from interfaces.database.Catalog import CatalogInterface
 from interfaces.scrapers.RuTracker import Data, WebScraper
 from util.NameUtility import NameUtility as name
 
@@ -10,17 +9,14 @@ from typing import Dict
 
 class WebScraperApp(ScraperApp):
 
-    def __init__(self, sonicat_path: str, moniker: str) -> None:
-        super().__init__(sonicat_path, moniker)
+    def __init__(self, sonicat_path: str) -> None:
+        super().__init__(sonicat_path, "RutrackerWebscraper")
         self.s = WebScraper()
         self.data = Data()
-        self.cat = {
-            #"assets": CatalogInterface(f"{self.cfg.data}/catalog/AssetCatalog.sqlite"),
-            "releases": CatalogInterface(f"{self.cfg.data}/catalog/ReleaseCatalog-ReadReplica.sqlite")
-        } 
+        self.wait = 10
 
     def search_by_label(self, catalog, label_id, pg=1) -> bool:
-        id_title_pairs = [], []
+        label_res, asset_res, id_title_pairs = [], [], []
         label_name = self.cat[catalog].label(label_id)
         assets = self.cat[catalog].assets_by_label(label_id)
         if not all([label_name, assets]):
@@ -41,9 +37,16 @@ class WebScraperApp(ScraperApp):
             for _p in id_title_pairs:
                 _tokens = _p[1].lower().split(" ")
                 if all([_t in result_name for _t in _tokens]):
-                    self.data.record_result(catalog, _p[0], _r)
+                    asset_res.append((catalog, _p[0], self.s.parse_result(_r)))
+                continue
+            if label_name.lower() in result_name:
+                label_res.append((catalog, label_id, self.s.parse_result(_r)))
         if (pg - 1) < len(pages):
-            self.search_by_label(catalog, label_id, pg=pg+1)
+            next_res = self.search_by_label(catalog, label_id, pg=pg+1)
+            label_res += next_res[0]
+            asset_res += next_res[1]
+        return (label_res, asset_res)
+
 
 
         

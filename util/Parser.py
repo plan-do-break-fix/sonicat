@@ -257,7 +257,7 @@ class AudioFilePathParser:
         normal_tempo = indexed_tempos[0][1]
         if (int(normal_tempo) < RANGE_TEMPO_4[0] or int(normal_tempo) > RANGE_TEMPO_4[1]):
             return ("", "")
-        return (raw_tempo, normal_tempo)
+        return (raw_tempo, str(normal_tempo))
 
     def asset_acronyms(self, cname: str) -> List[str]:
         label, title, _ = NameUtility.divide_cname(cname)
@@ -359,3 +359,27 @@ class AudioFilePathParser:
             else:
                 output.append(_t)
         return output
+
+class CueFileParser:
+
+    def parse():
+        out = {
+            "genre": [],
+            "year": "",
+            "discid": ""
+        }
+        ##
+        lines = [_l.lower() for _l in lines]
+        while any([
+            not out["genre"],
+            not out["year"],
+            not out["discid"]
+        ]):
+            for _l in lines:
+                if _l.startswith("rem genre"):
+                    out["genre"] = _l[10:].substitute("\"", "")
+                elif _l.startswith("rem date"):
+                    out["year"] = _l[9:].substitute("\"", "")
+                elif _l.startswith("rem discid"):
+                    out["discid"] = _l[11:].substitute("\"", "")
+    

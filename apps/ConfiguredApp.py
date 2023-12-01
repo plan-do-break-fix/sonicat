@@ -1,6 +1,5 @@
 
 from contextlib import closing
-from dataclasses import dataclass
 from yaml import load, SafeLoader
 
 from interfaces.database.Catalog import ReadInterface, WriteInterface
@@ -15,6 +14,8 @@ class SimpleApp:
         with closing(open(f"{sonicat_path}/config/config.yaml", "r")) as _f:
             self.cfg = load(_f.read(), SafeLoader)
         self.cfg["sonicat_path"] = sonicat_path
+        if app_type == "catalog":
+            app_name = self.cfg["catalogs"][app_name]["moniker"]
         self.temp = f"/tmp/sonicat-{app_name}"
         logpath = f"{sonicat_path}/log/{app_type}/"
         self.log = Logs.initialize_logging(app_name, "debug", logpath)
@@ -40,55 +41,9 @@ class SimpleApp:
         if catalog_name in self.writable.keys():
             return False
         moniker = self.cfg['catalogs'][catalog_name]['moniker']
-        db_path = f"{self.cfg.sonicat_path}/data/catalog/{moniker}.sqlite"
+        db_path = f"{self.cfg['sonicat_path']}/data/catalog/{moniker}.sqlite"
         self.writable["catalog_name"] = WriteInterface(db_path)
-        self.log.debug(f"Established writable connected to {self.db_path}.")
+        self.log.debug(f"Established writable connected to {db_path}.")
         return True
 
     
-
-@dataclass
-class Config:
-    name: str
-    moniker: str
-    log_level: str
-    data: str
-    managed: str
-    log: str
-    intake: str
-    export: str
-    temp: str
-
-
-class App:
-
-    def __init__(self, sonicat_path: str, moniker: str) -> None:
-        with closing(open(f"{sonicat_path}/config/config.yaml", "r")) as _f:
-            self.config = load(_f.read(), SafeLoader)
-        self.catalog_names = list(self.config["catalogs"].keys())
-        if not moniker:
-            self.cfg = Config(
-                log_level="debug",
-                data=f"{sonicat_path}/data",
-                log=f"{sonicat_path}/log",
-                name="",
-                moniker="",
-                managed="",
-                intake="",
-                export="",
-                temp="/tmp/sonicat"
-            )
-        else:
-            app_params = self.config["catalogs"][moniker]
-            app_config = {
-                "name": app_params["moniker"],
-                "moniker": moniker,
-                "log_level": app_params["log_level"],
-                "data": f"{sonicat_path}/data",
-                "managed": app_params["path"]["managed"],
-                "log": f"{sonicat_path}/log",
-                "intake": app_params["path"]["intake"],
-                "export": app_params["path"]["export"],
-                "temp": f"/tmp/sonicat-{moniker}"
-            }
-            self.cfg = Config(**app_config)

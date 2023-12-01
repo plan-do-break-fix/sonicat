@@ -12,12 +12,11 @@ class CatalogApp(SimpleApp):
 
     def __init__(self, sonicat_path: str, catalog: str) -> None:
         self.catalog_name = catalog
-        self.moniker = self.cfg["catalogs"][catalog]["moniker"]
-        super().__init__(sonicat_path, "catalog", self.moniker)
-        self.log.info(f"BEGIN {self.cfg.name} application initialization")
+        super().__init__(sonicat_path, "catalog", catalog)
+        self.log.info(f"BEGIN {self.cfg['catalogs'][catalog]['moniker']} application initialization")
         self.cln = Cleanse(f"{sonicat_path}/config/file-blacklist.yaml")
-        self.intake = self.cfg["catalogs"][catalog]["intake"]
-        self.managed = self.cfg["catalogs"]
+        self.intake = self.cfg["catalogs"][catalog]["path"]["intake"]
+        self.managed = self.cfg["catalogs"][catalog]["path"]["managed"]
         self.load_catalog_writable(catalog)
         self.log.info(f"END application initialization: Success")
 

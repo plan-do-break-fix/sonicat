@@ -23,7 +23,7 @@ class LibrosaAnalysis(SimpleApp):
 
     def __init__(self, sonicat_path: str) -> None:
         super().__init__(sonicat_path, "analysis", "LibrosaAnalysis")
-        self.basedir = f"{self.cfg.data}/analysis/"
+        self.basedir = f"{self.cfg['sonicat_path']}/data/analysis/"
         self.data = DataInterface(f"{self.basedir}/LibrosaAnalysis.sqlite")
         self.file_type_id_cache = {}
         self.load_catalog_replicas()

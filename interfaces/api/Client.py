@@ -93,6 +93,7 @@ class ApiClient:
                 ]):
             return False
         for _i, _duration in enumerate(measured):
-            if not result[_i] - th <= _duration <= result[_i] + th:
+            if all([not result[_i] - th <= float(_duration) <= result[_i] + th,
+                    result[_i] != 0]):
                 return False
         return True

@@ -5,24 +5,28 @@ from apps.metadata.webscraper.ScraperApp import ScraperApp
 from interfaces.scrapers.RuTracker import Data, WebScraper
 from util.NameUtility import NameUtility as name
 
-from typing import Dict
+from typing import Dict, List, Tuple
 
 class WebScraperApp(ScraperApp):
 
     def __init__(self, sonicat_path: str) -> None:
-        super().__init__(sonicat_path, "RutrackerWebscraper")
+        super().__init__(sonicat_path, "RutrackerWebScraper")
         self.s = WebScraper()
         self.data = Data()
         self.wait = 10
 
-    def search_by_label(self, catalog, label_id, pg=1) -> bool:
+    def begin_session(self):
+        uname, passwd = self.get_credentials("rutracker")
+        return self.s.login(uname, passwd)
+
+    def search_by_label(self, catalog, label_id, pg=1) -> Tuple[List]:
         label_res, asset_res, id_title_pairs = [], [], []
         label_name = self.cat[catalog].label(label_id)
         assets = self.cat[catalog].assets_by_label(label_id)
         if not all([label_name, assets]):
             return False
         url = self.s.query_url(label_name)
-        soup = self.s.page_soup(self.s.get_content(url))
+        soup = self.s.page_soup(self.s.get_html_with_driver(url))
         if not soup:
             return False
         for _a in assets:
@@ -31,7 +35,7 @@ class WebScraperApp(ScraperApp):
             else:
                 id_title_pairs.append(_a)
         results = self.s.result_rows(soup)
-        pages = self.s.pages(soup)
+        page_urls = self.s.pages(soup)
         for _r in results: 
             result_name = self.s.name(_r).lower()
             for _p in id_title_pairs:
@@ -41,11 +45,13 @@ class WebScraperApp(ScraperApp):
                 continue
             if label_name.lower() in result_name:
                 label_res.append((catalog, label_id, self.s.parse_result(_r)))
-        if (pg - 1) < len(pages):
+        if (pg - 1) < len(page_urls):
             next_res = self.search_by_label(catalog, label_id, pg=pg+1)
             label_res += next_res[0]
             asset_res += next_res[1]
         return (label_res, asset_res)
+
+    
 
 
 

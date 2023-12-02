@@ -72,18 +72,18 @@ class CatalogApp(SimpleApp):
     
     def archive_managed_asset(self, target: str, cname: str, label_dir: str) -> bool:
         self.log.debug("BEGIN archiving asset")
-        target = f"{self.cfg.intake}/{cname}"
-        store_path = f"{self.cfg.managed}/{label_dir}/"
+        target = f"{self.intake}/{cname}"
+        store_path = f"{self.managed}/{label_dir}/"
         if not shutil.os.path.exists(store_path):
             shutil.os.mkdir(store_path)
-        shutil.move(target, self.cfg.temp)
-        Archive.archive(f"{self.cfg.temp}/{cname}")
+        shutil.move(target, f"{self.temp}/")
+        Archive.archive(f"{self.temp}/{cname}")
         self.log.debug("Archive created successfully")
-        shutil.move(f"{self.cfg.temp}/{cname}.rar", store_path)
+        shutil.move(f"{self.temp}/{cname}.rar", store_path)
         if not shutil.os.path.isfile(f"{store_path}/{cname}.rar"):
             raise RuntimeWarning
         self.log.debug("Archive moved to label directory")
-        shutil.rmtree(f"{self.cfg.temp}/{cname}")
+        shutil.rmtree(f"{self.temp}/{cname}")
         self.log.debug("Original asset files removed")
         return True
     
@@ -97,15 +97,15 @@ class CatalogApp(SimpleApp):
     def unmanaged_intake(self, cname: str, file_data={}) -> bool:
         self.log.info(f"BEGIN unmanaged intake of {cname}")
         label_id = self.label_id_with_insert(cname)
-        self.db.new_asset(cname, label_id, managed=0)
+        self.writable[self.catalog_name].new_asset(cname, label_id, managed=0)
         if file_data:
-            asset_id = self.db.asset_id(cname)
+            asset_id = self.writable[self.catalog_name].asset_id(cname)
             if not self.insert_asset_files(asset_id, file_data):
                 self.log.error(f"Intake failure during file data insertion")
                 return False
         else:
             self.log.debug("Inserting asset without files")
-        self.db.commit()
+        self.writable[self.catalog_name].commit()
         self.log.info("END unmanaged intake: Success")
         return True
 
@@ -120,17 +120,17 @@ class CatalogApp(SimpleApp):
   # Intake Helpers
     def label_id_with_insert(self, cname: str) -> str:
         label = NameUtility.divide_cname(cname)[0]
-        if not self.db.label_exists(label):
+        if not self.writable[self.catalog_name].label_exists(label):
             label_dir = NameUtility.label_dir_from_cname(cname)
-            self.db.new_label(label, label_dir)
+            self.writable[self.catalog_name].new_label(label, label_dir)
             self.log.info(f"New label inserted: {label}")
-        return self.db.label_id_by_name(label)
+        return self.writable[self.catalog_name].label_id_by_name(label)
     
     def filetype_id_with_insert(self, ext: str) -> str:
-        if not self.db.filetype_exists(ext):
-            self.db.new_filetype(ext)
+        if not self.writable[self.catalog_name].filetype_exists(ext):
+            self.writable[self.catalog_name].new_filetype(ext)
             self.log.info(f"New filetype inserted: {ext}")
-        return self.db.filetype_id(ext)
+        return self.writable[self.catalog_name].filetype_id(ext)
 
     def insert_asset_files(self, asset_id: str, file_data: dict) -> bool:
         filetype_cache = {}
@@ -143,7 +143,7 @@ class CatalogApp(SimpleApp):
                 filetype_id = filetype_cache[_ext]
             else:
                 filetype_id = ""
-            self.db.new_file(asset_id,
+            self.writable[self.catalog_name].new_file(asset_id,
                              _f["basename"],
                              _f["dirname"],
                              _f["size"],
@@ -154,15 +154,15 @@ class CatalogApp(SimpleApp):
   # Purge
     def purge_file_from_asset(self) -> bool:
         file_id = ""
-        self.db.remove_file(file_id)
+        self.writable[self.catalog_name].remove_file(file_id)
 
     def purge_asset(self, cname) -> bool:
-        asset_id = self.db.asset_id(cname)
-        if self.db.asset_is_managed(asset_id):
+        asset_id = self.writable[self.catalog_name].asset_id(cname)
+        if self.writable[self.catalog_name].asset_is_managed(asset_id):
             #purge FS
             label_dir = NameUtility.label_dir_from_cname(cname)
-            asset_path = f"{self.cfg.managed}/{label_dir}/{cname}.rar"
-            shutil.move(asset_path, f"{self.cfg.temp}/")
+            asset_path = f"{self.managed}/{label_dir}/{cname}.rar"
+            shutil.move(asset_path, f"{self.temp}/")
         # purge DB
         pass
 
@@ -174,17 +174,17 @@ class CatalogApp(SimpleApp):
         return True
         
     def check_coverage(self) -> bool:
-        found_labels = list(FileUtility.collect_labels(self.cfg.managed).keys())
-        expected_labels = self.db.all_label_dirs()
+        found_labels = list(FileUtility.collect_labels(self.managed).keys())
+        expected_labels = self.writable[self.catalog_name].all_label_dirs()
         if not self.crosscheck_lists(expected_labels, found_labels):
             return False
         for _label in found_labels:
             found_assets = [_a.replace(".rar", "")
                             for _a in FileUtility.get_canonical_assets(
-                            f"{self.cfg.managed}/{_label}/")
+                            f"{self.managed}/{_label}/")
                             ]
-            label_id = self.db.label_id_by_dirname(_label)
-            all_asset_data = self.db.asset_data_by_label(label_id)
+            label_id = self.writable[self.catalog_name].label_id_by_dirname(_label)
+            all_asset_data = self.writable[self.catalog_name].asset_data_by_label(label_id)
             expected_assets = [_a["name"] for _a in all_asset_data]
             if not self.crosscheck_lists(expected_assets, found_assets):
                 return False

@@ -246,3 +246,44 @@ class WriteInterface(ReadInterface):
         if finalize:
             self.db.commit()
         return True
+
+    def new_label(self, name: str, dirname: str) -> bool:
+        self.c.execute("INSERT INTO label (name, dirname) VALUES (?, ?);",
+                       (name, dirname))
+        self.db.commit()
+        return True
+
+    def new_filetype(self, name: str) -> bool:
+        self.c.execute("INSERT INTO filetype (name) VALUES (?);", (name.lower(),))
+        self.db.commit()
+        return True
+    
+      #Update Asset/File Methods
+    def update_asset_name(self, asset_id: str, new_name: str) -> bool:
+        self.c.execute("UPDATE asset SET name = ? WHERE id = ?;",
+                       (new_name, asset_id))
+        return True
+    
+    def update_asset_label(self, asset_id: str, new_label: int) -> bool:
+        self.c.execute("UPDATE asset SET label = ? WHERE id = ?;",
+                       (new_label, asset_id))
+        self.db.commit()
+        return True
+    
+    def remove_asset(self, asset_id: str) -> bool:
+        self.c.execute("DELETE FROM asset WHERE id = ?;",
+                       (asset_id,))
+        self.db.commit()
+        return True
+    
+    def remove_file(self, file_id: str) -> bool:
+        self.c.execute("DELETE FROM asset WHERE id = ?;",
+                       (file_id,))
+        self.db.commit()
+        return True
+
+    def remove_files_by_name(self, asset_id: str, fname: str) -> bool:
+        self.c.execute("DELETE FROM file WHERE asset = ? and LOWER(basename) = ?;",
+                       (asset_id, fname.lower()))
+        self.db.commit()
+        return True

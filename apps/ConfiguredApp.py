@@ -14,12 +14,10 @@ class SimpleApp:
         with closing(open(f"{sonicat_path}/config/config.yaml", "r")) as _f:
             self.cfg = load(_f.read(), SafeLoader)
         self.cfg["sonicat_path"] = sonicat_path
-        if app_type == "catalog":
-            app_name = self.cfg["catalogs"][app_name]["moniker"]
-        self.app_name = app_name
+        self.app_name = self.cfg["catalogs"][app_name]["moniker"]
         self.temp = f"/tmp/sonicat-{app_name}"
         logpath = f"{sonicat_path}/log/{app_type}/"
-        self.log = Logs.initialize_logging(app_name, "debug", logpath)
+        self.log = Logs.initialize_logging(self.app_name, "debug", logpath)
         self.writable, self.replicas = {}, {}
     
     def load_catalog_replicas(self) -> bool:
@@ -43,7 +41,7 @@ class SimpleApp:
             return False
         moniker = self.cfg['catalogs'][catalog_name]['moniker']
         db_path = f"{self.cfg['sonicat_path']}/data/catalog/{moniker}.sqlite"
-        self.writable["catalog_name"] = WriteInterface(db_path)
+        self.writable[catalog_name] = WriteInterface(db_path)
         self.log.debug(f"Established writable connected to {db_path}.")
         return True
 

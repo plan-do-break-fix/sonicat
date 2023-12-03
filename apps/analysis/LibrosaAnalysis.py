@@ -32,7 +32,7 @@ class LibrosaAnalysis(SimpleApp):
 
     def get_completed_assets(self):
         return {_cn: self.data.completed_assets(_cn)
-                for _cn in self.config["catalogs"].keys()}
+                for _cn in self.cfg["catalogs"].keys()}
 
     def get_file_type_id(self, catalog, ext) -> str:
         if catalog not in self.file_type_id_cache.keys():
@@ -69,7 +69,7 @@ class LibrosaAnalysis(SimpleApp):
                              )
         self.log.debug(f"{len(asset_wav_file_ids)} wav file(s) to analyze in asset.")
         managed_path = self.cfg["catalogs"][catalog]["path"]["managed"]
-        cname = self.replicas[catalog].asset_cname(asset_id)
+        cname = self.replicas[catalog].asset_data(asset_id)["name"]
         FileUtility.export_asset_to_temp(cname, managed_path, self.temp)
         label_dir = NameUtility.label_dir_from_cname(cname)
         dfile_base_dir = f"{self.basedir}features/{catalog}/{label_dir}/{cname}"
@@ -104,7 +104,7 @@ class LibrosaAnalysis(SimpleApp):
     def write_beat_frames_dfile(self, catalog, file_id, beat_frames, dfile_base_dir):
         full_datapath = f"{dfile_base_dir}/{file_id}-librosa-beat_frames.npy"
         np.save(full_datapath, beat_frames)
-        datapath = full_datapath.replace(self.cfg.data, "data")
+        datapath = full_datapath.replace(f"{self.cfg['sonicat_path']}/data", "data")
         self.data.new_data(file_id, catalog, "4", dpath=datapath, finalize=False)
         return True
 

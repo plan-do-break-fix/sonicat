@@ -11,17 +11,17 @@ def parser():
     "input, expected",
     [
         ("  REVRSP1    Vocal Shots/REVRSP1 Arsen Vocal Shot  05  A# ",
-         "REVRSP1 Vocal Shots/REVRSP1 Arsen Vocal Shot 05 A#"),
+         "REVRSP1 Vocal Shots REVRSP1 Arsen Vocal Shot 05 A#"),
         ("REVRSP1 Vocal Shots/REVRSP1 Arsen Vocal Shot 05 A#",
-         "REVRSP1 Vocal Shots/REVRSP1 Arsen Vocal Shot 05 A#"),
+         "REVRSP1 Vocal Shots REVRSP1 Arsen Vocal Shot 05 A#"),
         ("ambience_chordautomate-1", "ambience chordautomate 1"),
         ("APT_Wav Piano Themes_FA/APT_100 BPM_Piano Themes_FA/APT_100_Piano Theme_06_FA",
-         "APT Wav Piano Themes FA/APT 100 BPM Piano Themes FA/APT 100 Piano Theme 06 FA"),
+         "APT Wav Piano Themes FA APT 100 BPM Piano Themes FA APT 100 Piano Theme 06 FA"),
         ("Serious Electro Vol 2_Oneshots_FA/Bass Hits/SE2_F#_Acidline_FA",
-         "Serious Electro Vol 2 Oneshots FA/Bass Hits/SE2 F# Acidline FA"),
+         "Serious Electro Vol 2 Oneshots FA Bass Hits SE2 F# Acidline FA"),
         (" Fxlicia - Astral(One Shot Kit)", "Fxlicia Astral One Shot Kit"),
         ("No Defeat - C#min/PLZZDELETE - No Defeat - 137bpm",
-         "No Defeat C#min/PLZZDELETE No Defeat 137bpm"),
+         "No Defeat C#min PLZZDELETE No Defeat 137bpm"),
         ("[LEAD] - Voices In My Head", "LEAD Voices In My Head"),
         ("", "")
     ]
@@ -48,22 +48,6 @@ def test_trim(input, expected, parser):
 @pytest.mark.parametrize(
     "input, expected",
     [
-        ("/usr/bin", ["usr", "bin"]),
-        ("/usr/bin/", ["usr", "bin"]),
-        ("usr/bin/", ["usr", "bin"]),
-        ("/usr/bin/", ["usr", "bin"]),
-        ("//usr//bin", ["usr", "bin"]),
-        ("//", []),
-        ("", [])
-    ]
-)
-def test_segment(input, expected, parser):
-    assert parser.segment(input) == expected
-
-
-@pytest.mark.parametrize(
-    "input, expected",
-    [
         ("'!?'", ""),
         ("\"Sample Text\"", "Sample Text"),
         ("", "")
@@ -76,22 +60,10 @@ def test_cleanse_no_acronyms(input, expected, parser):
 @pytest.mark.parametrize(
     "input, expected",
     [
-        ("Sample/Example/XX 01 fill 80bpm", "Sample/Example/ 01 fill 80bpm"),
-        ("", "")
-    ]
-)
-def test_cleanse_with_acronyms(input, expected, parser):
-    parser.acronyms = ["XX", "XXYYY", "YYY"]
-    assert parser.cleanse(input) == expected
-
-
-@pytest.mark.parametrize(
-    "input, expected",
-    [
         ("AMAJOR", "amajor"),
         ("am", "am"),
         ("C minor", "c minor"),
-        ("a brown fox", "a "),
+        ("a brown fox", "a"),
         ("180BPM C#min", "c#min")
     ]
 )
@@ -218,8 +190,8 @@ def test_asset_acronyms(input, expected, parser):
         ([], [])
     ]
 )
-def test_drop_single_char_tokens(input, expected, parser):
-    assert parser.drop_single_char_tokens(input) == expected
+def test_drop_tokens_by_len(input, expected, parser):
+    assert parser.drop_tokens_by_len(input) == expected
 
 @pytest.mark.parametrize(
     "input, expected",

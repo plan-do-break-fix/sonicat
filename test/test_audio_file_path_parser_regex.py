@@ -9,7 +9,7 @@ from util import Parser
         ("AMAJOR", "amajor"),
         ("am", "am"),
         ("C minor", "c minor"),
-        ("a brown fox", "a "),
+        ("a brown fox", "a"),
         ("180BPM C#min", "c#min"),
         ("a#2", "a#2"),
         ("gbm", "gbm")

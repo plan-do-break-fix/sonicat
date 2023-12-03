@@ -81,7 +81,7 @@ class WebInterface:
         self.t["throttle"] = time.time()
         return True
 
-    def get_html_with_driver(url):
+    def get_html_with_driver(self, url):
         driver = webdriver.Chrome()
         driver.get(url)
         source = driver.page_source
@@ -92,7 +92,10 @@ class WebInterface:
         headers=self.headers() if not headers else headers
         self.throttle()
         try:
-            resp = requests.get(url, headers=self.headers(self.useragent))
+            if not self.session:
+                resp = requests.get(url, headers=self.headers())
+            elif self.session:
+                resp = self.session.get(url, headers=self.headers())
         except ConnectionError:
             return e
         except requests.HTTPError as e:
@@ -103,7 +106,7 @@ class WebInterface:
             return e
         return resp if resp.ok else self.handle_response(resp)
 
-    def post(self, url: str, payload: Dict):
+    def post(self, url: str, payload: Dict, headers={}):
         if not self.session:
             return False
         headers=self.headers() if not headers else headers

@@ -104,18 +104,17 @@ class ReadInterface(DatabaseInterface):
 
   #Asset Data
     def encode_asset_data(self, result: Tuple[str]) -> Dict:
+        print(result)
         return {
             "id": result[0],
             "name": result[1],
             "label": result[2],
-            "digest": result[3],
-            "year": result[4],
-            "cover": result[5]
+            "managed": result[3]
         }
 
     def asset_data(self, asset_id: str) -> Dict:
         self.c.execute("SELECT * FROM asset WHERE id = ?;", (asset_id,))
-        result = self.c.fetchone()[0]
+        result = self.c.fetchone()
         return self.encode_asset_data(result) if result else {}
     
     def asset_data_by_label(self, label_id: str) -> List[Dict]:
@@ -145,7 +144,13 @@ class ReadInterface(DatabaseInterface):
         results = self.c.fetchall()
         if not results:
             return []
-        return [self.encode_file_data for res in results]
+        return [self.encode_file_data(res) for res in results]
+
+    def file_path(self, file_id: str) -> str:
+        self.c.execute("SELECT basename, dirname FROM file WHERE id = ?;",
+                       (file_id,))
+        result = self.c.fetchone()
+        return f"{result[1]}/{result[0]}"
 
   # Label Data
     def all_label_dirs(self) -> List[str]:

@@ -13,11 +13,11 @@ class SimpleApp:
     def __init__(self, sonicat_path: str, app_type: str, app_name: str) -> None:
         with closing(open(f"{sonicat_path}/config/config.yaml", "r")) as _f:
             self.cfg = load(_f.read(), SafeLoader)
+        self.app_name = app_name
         self.cfg["sonicat_path"] = sonicat_path
-        self.app_name = self.cfg["catalogs"][app_name]["moniker"]
         self.temp = f"/tmp/sonicat-{app_name}"
         logpath = f"{sonicat_path}/log/{app_type}/"
-        self.log = Logs.initialize_logging(self.app_name, "debug", logpath)
+        self.log = Logs.initialize_logging(app_name, "debug", logpath)
         self.writable, self.replicas = {}, {}
     
     def load_catalog_replicas(self) -> bool:

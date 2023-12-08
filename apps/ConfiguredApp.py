@@ -20,13 +20,15 @@ class SimpleApp:
         self.log = Logs.initialize_logging(app_name, "debug", logpath)
         self.writable, self.replicas = {}, {}
     
-    def load_catalog_replicas(self) -> bool:
+    def load_catalog_replicas(self, catalog_names=[]) -> bool:
         """
         Creates connections to all read-replica catalog database instances.
         """
         if self.replicas:
             return False
-        for catalog_name in list(self.cfg["catalogs"].keys()):
+        if not catalog_names:
+            catalog_names = list(self.cfg["catalogs"].keys())
+        for catalog_name in catalog_names:
             moniker = self.cfg['catalogs'][catalog_name]['moniker']
             dbpath = f"{self.cfg['sonicat_path']}/data/catalog/{moniker}.sqlite"
             self.replicas[catalog_name] = ReadInterface(dbpath)

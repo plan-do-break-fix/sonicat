@@ -3,7 +3,7 @@ from typing import Dict, List
 
 from apps.ConfiguredApp import SimpleApp
 from interfaces.Interface import DatabaseInterface
-from interfaces.Tokens import TokensInterface
+from interfaces.database.Tokens import TokensInterface
 from util import Logs
 from util import Parser
 
@@ -77,17 +77,14 @@ class PathParser(SimpleApp):
     def __init__(self, sonicat_path: str) -> None:
         super().__init__(sonicat_path, "analysis", "FilePathParser")
         self.load_catalog_replicas()
-        self.cfg.name = "PathParser"
-        self.cfg.log += "/tokens"
-        self.log = Logs.initialize_logging(self.cfg)
-        self.log.info(f"BEGIN {self.cfg.name} application initialization")
+        self.log.info(f"BEGIN {self.app_name} application initialization")
         self.log.debug("Connected to Catalog interface")
         self.parser = Parser.AudioFilePathParser()
         self.log.debug("Path Parser initialized")
-        path_parsing_db_path = f"{self.cfg.data}/tokens/PathParsing.sqlite"
+        path_parsing_db_path = f"{self.cfg['sonicat_path']}/data/tokens/PathParsing.sqlite"
         self.record = Interface(path_parsing_db_path)
         self.log.debug("Connected to database")
-        tokens_db_path = f"{self.cfg.data}/tokens/Tokens.sqlite"
+        tokens_db_path = f"{self.cfg['sonicat_path']}/data/tokens/Tokens.sqlite"
         self.tokens = TokensInterface(tokens_db_path)
         self.log.debug("Connected to Tokens interface")
         self.log.info(f"END application initialization: Success")
@@ -129,7 +126,7 @@ class PathParser(SimpleApp):
         #target_asset_id = self.asset_with_unparsed_files()
         while self.target_asset_ids:
             target_id = self.target_asset_ids.pop()
-            cname = self.replicas[catalog].asset_cname(target_id)
+            cname = self.replicas[catalog].asset_data(target_id)["cname"]
             self.log.info(f"BEGIN parsing audio file paths in {cname}")
             self.parse_asset_file_paths(catalog, target_id)
             self.log.info(f"END asset file path parsing: Success")
@@ -141,7 +138,7 @@ class TokenAnalysis(SimpleApp):
     def __init__(self, sonicat_path: str) -> None:
         super().__init__(sonicat_path, "analysis", "TokenAnalysis")
         self.load_catalog_replicas()
-        tokens_db_path = f"{self.cfg.data}/tokens/Tokens.sqlite"
+        tokens_db_path = f"{self.cfg['sonicat_path']}/data/tokens/Tokens.sqlite"
         self.tokens = TokensInterface(tokens_db_path)
 
         self.cache = {}

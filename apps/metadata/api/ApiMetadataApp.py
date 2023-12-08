@@ -32,7 +32,7 @@ class ApiMetadataApp(SimpleApp):
         if not tracklist:
             return False
         durations = [_t[1] for _t in tracklist]
-        cname = self.replicas[catalog].asset_cname(asset_id)
+        cname = self.replicas[catalog].asset_data(asset_id)["name"]
         label, title, year = NameUtility.divide_cname(cname)
         arg_sets = [
             {"artist": label},

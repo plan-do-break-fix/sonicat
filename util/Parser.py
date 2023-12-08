@@ -52,7 +52,6 @@ KEY_SUBSTITUTIONS = {
     "sharp": "#",
     "flat": "b",
     "or": "",
-    "maj": "",
     r"m($|[2-9])": "min"
 }
 # These are most commonly used in English words for decorative purposes
@@ -180,8 +179,6 @@ class AudioFilePathParser:
     def cleanse(self, path: str) -> str:
         for _c in DROP_CHARS:
             path = path.replace(_c, "")
-        #for acronym in self.acronyms:
-        #    path = path.replace(acronym, "")
         path = self.make_substitutions(CHAR_SUBSTITUTIONS, path)
         path = self.make_substitutions(STRING_SUBSTITUTIONS, path)
         return path

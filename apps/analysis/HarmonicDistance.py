@@ -141,7 +141,7 @@ class HarmonicDistance(SimpleApp):
 
     def __init__(self, sonicat_path: str) -> None:
         super().__init__(sonicat_path, "analysis", "HarmonicDistance")
-        librosa_analysis_replica_path = f"{self.cfg.data}/analysis/LibrosaAnalysis-ReadReplica.sqlite"
+        librosa_analysis_replica_path = f"{self.cfg['sonicat_path']}/data/analysis/LibrosaAnalysis-ReadReplica.sqlite"
         self.rosa_data = DataInterface(librosa_analysis_replica_path)
         self.log.info(f"Application Initialization Successful")
 

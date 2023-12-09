@@ -6,7 +6,7 @@ import shutil
 from typing import List, Tuple
 
 #from apps.ConfiguredApp import App, Config
-from apps.ConfiguredApp import SimpleApp
+from apps.App import AppConfig, SimpleApp
 from interfaces.database.LibrosaData import DataInterface
 from util.NameUtility import NameUtility
 from util.FileUtility import FileUtility
@@ -22,17 +22,15 @@ DATATYPES = [
 class LibrosaAnalysis(SimpleApp):
 
     def __init__(self, sonicat_path: str) -> None:
-        super().__init__(sonicat_path, "analysis", "LibrosaAnalysis")
-        self.basedir = f"{self.cfg['sonicat_path']}/data/analysis/"
-        self.data = DataInterface(f"{self.basedir}/LibrosaAnalysis.sqlite")
+        config = AppConfig(sonicat_path, "librosa")
+        super().__init__(config)
         self.file_type_id_cache = {}
         self.load_catalog_replicas()
         self.completed_assets = self.get_completed_assets() 
-        self.log.info(f"LibrosaAnalysis Application Initialization Successful")
 
     def get_completed_assets(self):
         return {_cn: self.data.completed_assets(_cn)
-                for _cn in self.cfg["catalogs"].keys()}
+                for _cn in self.cfg.catalog_names()}
 
     def get_file_type_id(self, catalog, ext) -> str:
         if catalog not in self.file_type_id_cache.keys():
@@ -68,7 +66,7 @@ class LibrosaAnalysis(SimpleApp):
                                asset_id, self.get_file_type_id(catalog, "wav")
                              )
         self.log.debug(f"{len(asset_wav_file_ids)} wav file(s) to analyze in asset.")
-        managed_path = self.cfg["catalogs"][catalog]["path"]["managed"]
+        managed_path = self.cfg.catalog_cfg[catalog]["path"]["managed"]
         cname = self.replicas[catalog].asset_data(asset_id)["name"]
         FileUtility.export_asset_to_temp(cname, managed_path, self.temp)
         label_dir = NameUtility.label_dir_from_cname(cname)
@@ -104,8 +102,7 @@ class LibrosaAnalysis(SimpleApp):
     def write_beat_frames_dfile(self, catalog, file_id, beat_frames, dfile_base_dir):
         full_datapath = f"{dfile_base_dir}/{file_id}-librosa-beat_frames.npy"
         np.save(full_datapath, beat_frames)
-        datapath = full_datapath.replace(f"{self.cfg['sonicat_path']}/data", "data")
-        self.data.new_data(file_id, catalog, "4", dpath=datapath, finalize=False)
+        self.data.new_data(file_id, catalog, "4", dpath=self.cfg.data_path(), finalize=False)
         return True
 
     def write_chroma_distribution(self, catalog, file_id, chroma_distribution) -> str:

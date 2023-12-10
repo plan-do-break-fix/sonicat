@@ -2,10 +2,10 @@
 from contextlib import closing
 from yaml import load, SafeLoader
 
-from interfaces.database.Catalog import ReadInterface, WriteInterface
+from interfaces.database.Catalog import ReadInterface
 from util import Logs
 
-from typing import Dict, List
+from typing import Any, Dict, List
 
 
 """
@@ -19,15 +19,17 @@ CONVENTION: name, moniker
 
 class AppConfig:
 
-    def __init__(self, sonicat_path: str, app_name: str, manual_cfg=None) -> None:
-        if app_name == "test":
-            raw_cfg = manual_cfg
+    def __init__(self, sonicat_path: str, app_name: str, debug_cfg=None) -> None:
+        self.sonicat_path = sonicat_path
+        if app_name == "debug":
+            raw_cfg = debug_cfg
         else:
-            with closing(open(f"{self.cfg.sonicat_path}/config/config.yaml", "r")) as _f:
+            with closing(open(f"{self.sonicat_path}/config/config.yaml", "r")) as _f:
                 raw_cfg = load(_f.read(), SafeLoader)
         self.catalog_cfg = raw_cfg["catalogs"]
         self.app_cfg = raw_cfg["apps"]
-        self.sonicat_path = sonicat_path
+        if app_name == "tasks":
+            self.task_cfg = raw_cfg["tasks"]
         self.app_name = app_name
         self.app_type = self.type_of_app(app_name)
         if not self.app_type:
@@ -86,30 +88,39 @@ class SimpleApp:
         elif not all([_c in self.cfg.catalog_names() for _c in catalog_names]):
             raise ValueError
         for catalog_name in catalog_names:
-            moniker = self.cfg.catalogs[catalog_name]['moniker']
+            moniker = self.cfg.catalog_cfg[catalog_name]["moniker"]
             dbpath = f"{self.cfg.sonicat_path}/data/catalog/{moniker}.sqlite"
             self.replicas[catalog_name] = ReadInterface(dbpath)
         return 
-    
-    def load_appdata_replicas(self, app_names=[]) -> bool:
-        pass
+
+  # Methods to be reimplemented by subclasses
+    def run_task(self, task: Dict) -> Dict:
+        raise RuntimeError
+        result = None
+        task["result"] = self.encode_result(result)
+        return task
+
+    def load_data_replicas(self) -> bool:
+        raise RuntimeError
+        self.replicas["replica"] = None
+
+
+    #  This needs to be implemented in each subclass
+    #def load_appdata_replicas(self, app_names=[]) -> bool:
+    #    if not app_names:
+    #        app_names = self.cfg.app_names()
+    #    elif not all([_a in self.cfg.app_names() for _a in app_names]):
+    #        raise ValueError
+    #    for app_name in app_names:
+    #        app_type = self.cfg.type_of_app(app_name)
+    #        moniker = self.cfg.app_cfg[app_name]
+    #        dbpath = f"{self.cfg.sonicat_path}/data/{app_type}/{moniker}.sqlite"
+    #        self.replicas[app_name] = ????
+        
+    #def encode_result(self, result: Any) -> Dict:
+    #    raise RuntimeError
+    #    return {}
 
 
 
-    def load_catalog_writable(self, catalog_name: str) -> bool:
-        """
-        Create read/write connection to indicated catalog database.
-        """
-        if catalog_name in self.writable.keys():
-            return False
-        moniker = self.cfg['catalogs'][catalog_name]['moniker']
-        db_path = f"{self.cfg['sonicat_path']}/data/catalog/{moniker}.sqlite"
-        self.writable[catalog_name] = WriteInterface(db_path)
-        self.log.debug(f"Established writable connected to {db_path}.")
-        return True
 
-    
-
-class AppRunner:
-
-    pass

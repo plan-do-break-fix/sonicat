@@ -11,7 +11,7 @@ def config():
         },
         "apps": {
             "test": {
-                "test": {
+                "debug": {
                     "moniker": "TestApp",
                     "log_level": "debug"
                 }
@@ -25,13 +25,13 @@ def config():
             }
         }
     }
-    return AppConfig("/test", "test", manual_cfg=test_config)
+    return AppConfig("/test", "debug", debug_cfg=test_config)
 
 @pytest.mark.parametrize(
     "attribute, expected",
     [
         ("sonicat_path", "/test"),
-        ("app_name", "test"),
+        ("app_name", "debug"),
         ("app_type", "test"),
         ("app_moniker", "TestApp"),
         ("log_level", "debug")
@@ -43,7 +43,7 @@ def test_init(attribute, expected, config):
 @pytest.mark.parametrize(
     "input, expected",
     [
-        ("test", "test"),
+        ("debug", "test"),
         ("test_anal", "analysis"),
         ("test_tokens", "tokens"),
         ("test_tags", "tokens")
@@ -60,11 +60,11 @@ def test_catalog_names(config):
 @pytest.mark.parametrize(
         "input, expected",
         [
-            (["test"], ["test"]),
+            (["test"], ["debug"]),
             (["analysis"], ["test_anal"]),
             (["tokens"], ["test_tags", "test_tokens"]),
-            ([], ["test", "test_anal", "test_tags", "test_tokens"]),
-            (["test", "analysis"], ["test", "test_anal"])
+            ([], ["debug", "test_anal", "test_tags", "test_tokens"]),
+            (["test", "analysis"], ["debug", "test_anal"])
         ]
 )
 def test_app_names(input, expected, config):

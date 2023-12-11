@@ -51,6 +51,17 @@ class NameUtility:
         return (label, title, note)
     
     @staticmethod
+    def file_extension(fname: str) -> str:
+        ext = fname.split(".")[-1]
+        if any([ext == "",
+                ext == fname,
+                " " in ext,
+                any([f"{_p}{ext}" == fname for _p in [".", "_.", "._."]])
+                    ]):
+            return ""
+        return ext
+
+    @staticmethod
     def cname_tokens(cname: str) -> List[str]:
         tokens, parts = [], NameUtility.divide_cname(cname)
         for _part in parts:

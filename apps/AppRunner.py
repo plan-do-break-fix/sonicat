@@ -20,11 +20,17 @@ class AppRunner:
     def run(self):
         pass
 
+    def run_cycle(self):
+        task_result = self.app.run_task(self.next_task())
+        return self.route_task(task_result)
+
     def shutdown(self):
         pass
 
     def next_task(self) -> Dict:
-        task = self.inbound.dequeue(self.app.cfg.app_name)
+        task = self.command.dequeue(self.app.cfg.app_name)
+        if not task:
+            task = self.inbound.dequeue(self.app.cfg.app_name)
         return json.loads(task) if task else {}
 
     def route_task(self, task: Dict):
@@ -40,29 +46,14 @@ class AppRunner:
             routing_app_name = self.app.cfg.app_name
         if not routing_app_type:
             routing_app_type = self.app.cfg.app_type
-        # multivariate task routing
-        if all([routing_app_name == "app_data",
-                task["app_name"] in ("inventory", "librosa")]):
-            return "file_mover"
-        if all([routing_app_name == "inventory",
-                task["app_name"] == "inventory"]):
-            return "app_data"
-        if all([routing_app_name == "app_data",
-                task["app_name"] == "inventory"]):
-            return "file-mover"
-        if all([routing_app_name == "file_mover",
-                task["app_name"] == "inventory"]):
+        if routing_app_name in ("app_data", "file_mover"):
             return "tasks"
-        # task routing by routing app name
-        if routing_app_name == "tasks":
+        elif any([routing_app_type in ("analysis", "metadata", "tokens"),
+                  routing_app_name in ("inventory")]
+                  ):
+            return "app_data"
+        else:
             return task["app_name"]
-        if routing_app_name == "file_mover":
-            return "tasks"
-        
-        # task routing by routing app type
-        if routing_app_type in ("analysis", "metadata", "tokens"):
-            return "app_data"
-        return ""
 
 
 

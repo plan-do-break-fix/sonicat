@@ -38,7 +38,7 @@ def test_route_target_template(task, app_name, app_type, expected, apprunner):
     [
         ("tasks", "system", "discogs"),
         ("discogs", "metadata", "app_data"),
-        ("app_data", "system", "")
+        ("app_data", "system", "tasks")
     ]
 )
 def test_route_target_discogs(app_name, app_type, expected, apprunner):
@@ -65,8 +65,7 @@ def test_route_target_file_mover(app_name, app_type, expected, apprunner):
     [
         ("tasks", "system", "inventory"),
         ("inventory", "system", "app_data"),
-        ("app_data", "system", "file_mover"),
-        ("file_mover", "system", "tasks")
+        ("app_data", "system", "tasks")
     ]
 )
 def test_route_target_inventory(app_name, app_type, expected, apprunner):
@@ -80,7 +79,7 @@ def test_route_target_inventory(app_name, app_type, expected, apprunner):
     [
         ("tasks", "system", "lastfm"),
         ("lastfm", "metadata", "app_data"),
-        ("app_data", "system", "")
+        ("app_data", "system", "tasks")
     ]
 )
 def test_route_target_lastfm(app_name, app_type, expected, apprunner):
@@ -94,8 +93,7 @@ def test_route_target_lastfm(app_name, app_type, expected, apprunner):
     [
         ("tasks", "system", "librosa"),
         ("librosa", "analysis", "app_data"),
-        ("app_data", "system", "file_mover"),
-        ("file_mover", "system", "tasks")
+        ("app_data", "system", "tasks")
     ]
 )
 def test_route_target_librosa(app_name, app_type, expected, apprunner):
@@ -122,23 +120,3 @@ def test_route_target_dispatch(task, expected, apprunner):
                                   routing_app_type="system"
                                   ) == expected
 
-# Task routing is complete
-@pytest.mark.parametrize(
-    "task, app_name, app_type",
-    [
-        (DISCOGS_TASK, "app_data", "system"),
-        (LASTFM_TASK, "app_data", "system")
-    ]
-)
-def test_route_target_terminal(task, app_name, app_type, apprunner):
-    assert apprunner.route_target(task,
-                                  routing_app_name=app_name,
-                                  routing_app_type=app_type
-                                  ) == ""
-    
-# AppData after recording primary analysis results
-def test_route_target_primary_analysis(apprunner):
-    assert apprunner.route_target(LIBROSA_TASK,
-                                  routing_app_name="app_data",
-                                  routing_app_type="system"
-                                  ) == "file_mover"

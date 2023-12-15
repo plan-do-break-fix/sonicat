@@ -5,7 +5,7 @@ from util.FileUtility import FileUtility as files
 from util.Logs import StdOutLogger
 from util.NameUtility import NameUtility
 
-from apps.ConfiguredApp import App, Config
+from apps.App import App, Config
 
 class Interactive(App):
 
@@ -62,3 +62,52 @@ class CleanUp(App):
                      and not NameUtility.name_is_canonical(_a.replace(".rar", ""))
                      ]:
             shutil.move(f"{label_path}/{asset}", recover_path)
+
+
+### Copied from obsolete CatalogApp class
+
+'''
+ # Validate - Maybe it's own operations class?
+    def check_database(self) -> bool:
+        if not all([self.check_coverage()
+                   ]):
+            return False
+        return True
+        
+    def check_coverage(self) -> bool:
+        found_labels = list(FileUtility.collect_labels(self.managed).keys())
+        expected_labels = self.writable[self.catalog_name].all_label_dirs()
+        if not self.crosscheck_lists(expected_labels, found_labels):
+            return False
+        for _label in found_labels:
+            found_assets = [_a.replace(".rar", "")
+                            for _a in FileUtility.get_canonical_assets(
+                            f"{self.managed}/{_label}/")
+                            ]
+            label_id = self.writable[self.catalog_name].label_id_by_dirname(_label)
+            all_asset_data = self.writable[self.catalog_name].asset_data_by_label(label_id)
+            expected_assets = [_a["name"] for _a in all_asset_data]
+            if not self.crosscheck_lists(expected_assets, found_assets):
+                return False
+        return True
+    
+    def crosscheck_lists(self, list_a, list_b) -> bool:
+        diff = list(set(list_a).symmetric_difference(set(list_b)))
+        if diff == []:
+            return True
+        else:
+            self.print_crosscheck_report(list_a, list_b)
+            return False
+
+    def print_crosscheck_report(self, list_a, list_b):
+        unique_in_a = [_i for _i in list_a if _i not in list_b]
+        unique_in_b = [_i for _i in list_b if _i not in list_a]
+        print(f"{len(unique_in_a)} items in list 1 not found in list 2:")
+        for _a in unique_in_a:
+            print(f"  {_a}")
+        print(f"{len(unique_in_b)} items in list 2 not found in list 1:")
+        for _b in unique_in_b:
+            print(f"  {_b}")
+
+
+'''

@@ -5,6 +5,7 @@
 
 from contextlib import closing
 from hashlib import blake2b
+import re
 import shutil
 from typing import Dict, List, Tuple
 
@@ -48,31 +49,7 @@ class FileUtility:
                 grouped[FileUtility.pub_dir_from_cname(_a)] = [_a]
         return grouped
     
-    @staticmethod
-    def survey_asset_files(path: str) -> Dict[str, Dict[str, str]]:
-        file_data = {}
-        for _path in shutil.os.walk(path):
-            for basename in _path[2]:
-                dirname = _path[0].replace(path, "")
-                fpath = "/".join([_path[0], basename])
-                file_data[f"{dirname}/{basename}"] = {
-                    "basename": basename,
-                    "dirname": dirname,
-                    "size": shutil.os.path.getsize(fpath),
-                    "filetype": FileUtility.file_extension(basename)
-                }
-        return file_data
-    
-    @staticmethod
-    def file_extension(fname: str) -> str:
-        ext = fname.split(".")[-1]
-        if any([ext == "",
-                ext == fname,
-                " " in ext,
-                any([f"{_p}{ext}" == fname for _p in [".", "_.", "._."]])
-                    ]):
-            return ""
-        return ext
+
 
     @staticmethod
     def export_asset_to_temp(cname, managed_path, temp_path) -> bool:
@@ -151,33 +128,4 @@ class Archive:
 
 
 
-from yaml import load, SafeLoader
 
-class Cleanse:
-
-    def __init__(self, blacklist_yaml: str) -> None:
-        with closing(open(blacklist_yaml, "r")) as _f:
-            data = load(_f.read(), SafeLoader)
-        self.ban = {"fname": data["basename"],
-                    "dname": data["dirname"]}
-        
-
-    def ban_list(self, path) -> Tuple[str]:
-        ban_dirs, ban_files = [], []
-        for _r, _dlist, _flist in shutil.os.walk(path):
-            for _dname in _dlist:
-                if _dname.lower() in self.ban["dname"]:
-                    ban_dirs.append(f"{_r}/{_dname}")
-            for _fname in _flist:
-                if _fname.lower() in self.ban["fname"]:
-                    ban_files.append(f"{_r}/{_fname}")
-        ban_dirs = [_l.replace("//", "/") for _l in ban_dirs]
-        ban_files = [_l.replace("//", "/") for _l in ban_files]
-        for _d in ban_dirs:
-            ban_files = [_f for _f in ban_files if not _f.startswith(_d)]
-        return (ban_dirs, ban_files)
-
-
-    def remediate_file_ext(self, ext: str) -> str:
-        return ext.lower() if ext == ext.upper() else ext
-            

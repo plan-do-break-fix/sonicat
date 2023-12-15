@@ -76,6 +76,14 @@ class NameUtility:
         return cname.split(" - ")[0].lower().replace(" ", "_")
 
     @staticmethod
+    def cname_from_asset_path(asset_path: str) -> str:
+        """
+        asset_path can be asset directory or asset archive
+        """
+        cname = asset_path.split("/")[-1]
+        return cname[:-4] if cname.endswith(".rar") else cname
+
+    @staticmethod
     def title_has_media_type_label(title: str) -> bool:
         return any([_l in title for _l in [" CDM", "CDR", "CDS", " MCD", " EP", " LP"]])
 

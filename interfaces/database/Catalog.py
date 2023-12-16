@@ -122,6 +122,11 @@ class ReadInterface(DatabaseInterface):
         results = self.c.fetchall()
         return [self.encode_asset_data(_r) for _r in results] if results else []
     
+    def all_asset_data(self) -> List[Dict]:
+        self.c.execute("SELECT * FROM asset;")
+        results = self.c.fetchall()
+        return [self.encode_asset_data(_r) for _r in results] if results else []
+
   #File Data
     def encode_file_data(self, result: Tuple[str]) -> Dict:
         return {"id": result[0],
@@ -165,6 +170,11 @@ class ReadInterface(DatabaseInterface):
         self.c.execute("SELECT name FROM label WHERE id = ?", (label_id,))
         return self.c.fetchone()[0]
 
+    def label_id_dicts(self):
+        self.c.execute("SELECT name, id FROM label")
+        result = self.c.fetchall()
+        return {_r[0]: _r[1] for _r in result} if result else {}
+    
   # Filetype Methods
     def filetype_id(self, ext: str) -> str:
         self.c.execute("SELECT id FROM filetype WHERE name = ?;", (ext.lower(),))
@@ -174,6 +184,11 @@ class ReadInterface(DatabaseInterface):
         self.c.execute("SELECT name FROM filetype WHERE id = ?",
                        (filetype_id,))
         return self.c.fetchone()[0]
+    
+    def filetype_id_dicts(self):
+        self.c.execute("SELECT name, id FROM filetype")
+        result = self.c.fetchall()
+        return {_r[0]: _r[1] for _r in result} if result else {}
          
   #Boolean Check Methods
     def asset_exists(self, cname: str) -> bool:
@@ -212,8 +227,41 @@ class ReadInterface(DatabaseInterface):
     def count_assets_by_labels(self) -> Dict[str, int]:
         pass
 
+class CachedReadInterface(ReadInterface):
 
-class WriteInterface(ReadInterface):
+    def __init__(self, dbpath="") -> None:
+        super().__init__(dbpath)
+        self.filetype_cache = self.filetype_id_dicts()
+        self.label_cache = self.label_id_dicts()
+        self.cname_cache = self.initialize_cname_cache()
+
+    def initialize_cname_cache(self) -> Dict:
+        _data = self.all_asset_data()
+        return {_d["name"]: _d["id"] for _d in _data}
+
+    def cached_filetype_id(self, ext: str) -> str:
+        if ext not in self.filetype_cache.keys():
+            self.filetype_cache[ext] = self.filetype_id(ext)
+        return self.filetype_cache[ext]
+
+    def cached_label_id(self, label: str) -> str:
+        if label not in self.label_cache.keys():
+            self.label_cache[label] = self.label_id_by_name(label)
+        return self.label_cache[label]
+
+    def cached_cname(self, asset_id: str) -> str:
+        if asset_id not in self.cname_cache.keys():
+            self.cname_cache[asset_id] = self.asset_data(asset_id)["name"]
+        return self.cname_cache[asset_id]
+
+    def list_asset_ids(self) -> List[str]:
+        return list(self.cname_cache.values())
+
+    def list_asset_ids_cnames(self) -> List[Tuple[str]]:
+        return [(self.cname_cache[_k], _k) for _k in self.cname_cache.keys()]
+
+
+class WriteInterface(CachedReadInterface):
 
     def __init__(self, dbpath="") -> None:
         super().__init__(dbpath)

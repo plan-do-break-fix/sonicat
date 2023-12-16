@@ -1,4 +1,6 @@
 
+from numpy import save as np_save
+
 from typing import Dict, List, Tuple
 
 from interfaces.Interface import DatabaseInterface
@@ -70,6 +72,24 @@ class DataInterface(DatabaseInterface):
             self.c.execute(statement)
         self.db.commit()
         self.dtype_ids = {}
+        
+    def record_results(self, task: Dict) -> bool:
+        catalog = task["catalog"]
+        for result in task["results"]:
+            if result["data_type"] == "cdist":
+                cdist_id = self.new_chroma_distribution(catalog, result["file_id"], result["data"])
+                self.data.new_data(result["file_id"], catalog, "3", dkeyid=cdist_id)
+            elif result["data_type"] == "duration":
+                self.new_data(result["file_id"], catalog, "1", dvalue=result["data"])
+            elif result["data_type"] == "tempo":
+                self.new_data(result["file_id"], catalog, "2", dvalue=result["data"])
+            elif result["data_type"] == "beat_frames":
+                datapath = f"{task['args']['output_dir']}/{result['file_id']}-librosa-beat_frames.npy"
+                np_save(datapath, result["data"])
+                clean_datapath = datapath.split("/sonicat/")[-1]
+                self.data.new_data(result["file_id"], catalog, "4", dpath=clean_datapath, finalize=False)
+        self.db.commit()
+        return True
 
     def new_data(self, file_id: str,
                        catalog: str,
@@ -111,6 +131,14 @@ class DataInterface(DatabaseInterface):
         ;""", (catalog, file_id, cdist[0], cdist[1], cdist[2], cdist[3],
                                  cdist[4], cdist[5], cdist[6], cdist[7],
                                  cdist[8], cdist[9], cdist[10], cdist[11]))
+        result = self.data.c.execute("SELECT last_insert_rowid();")
+        return result[0] if result else ""
+
+    def write_beat_frames_dfile(self, catalog, file_id, beat_frames, dfile_base_dir):
+        full_datapath = f"{dfile_base_dir}/{file_id}-librosa-beat_frames.npy"
+        np_save(full_datapath, beat_frames)
+        self.data.new_data(file_id, catalog, "4", dpath=self.cfg.data_path(), finalize=False)
+        return True
 
     def dtype_id(self, dtype_name: str) -> str:
         if not dtype_name in self.dtype_ids.keys():
@@ -167,7 +195,7 @@ class DataInterface(DatabaseInterface):
                        (catalog, asset_id))
         self.db.commit()
 
-    def completed_assets(self, catalog) -> List[str]:
+    def completed(self, catalog) -> List[str]:
         self.c.execute("SELECT asset FROM log WHERE catalog = ?;", (catalog,))
         return [_i[0] for _i in self.c.fetchall()]
     

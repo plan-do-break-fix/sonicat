@@ -88,43 +88,6 @@ class FileUtility:
 
 
 
-import subprocess
-
-class Archive:
-
-    @staticmethod
-    def archive(path: str) -> bool:
-        """
-        Create rar archive of <path> in same directory and with same basename.
-        """
-        if not shutil.os.path.isdir(path):
-            print("Unable to find {path}")
-            raise ValueError
-        if path.endswith("/"):
-            path = path[:-1]
-        parent_dir, target = shutil.os.path.split(path)
-        shutil.os.chdir(parent_dir)
-        subprocess.run(["rar", "a", f"{target}.rar", target])
-        return True
-
-
-    @staticmethod
-    def restore(path: str) -> bool:
-        """
-        Expand rar file at <path> in same directory and with same name as the archive.
-        """
-        if not all([shutil.os.path.isfile(path),
-                   path.endswith(".rar")]
-                   ):
-            raise ValueError
-        parent_dir, target = shutil.os.path.split(path)
-        shutil.os.chdir(parent_dir)
-        #subprocess.run(["unrar", "x", target],
-        #               stdout=subprocess.DEVNULL,
-        #               stderr=subprocess.STDOUT
-        #               )
-        subprocess.run(["unrar", "x", target])
-        return True
 
 
 

@@ -86,26 +86,4 @@ class Archive:
         shutil.os.chdir(parent_dir)
         subprocess.run(["unrar", "x", target])
         return True
-    
-
-    # BASEMENT
-    '''
-    
-    def archive_managed_asset(self, asset_path: str, cname: str) -> bool:
-        label_dir = NameUtility.label_dir_from_cname(cname)
-        self.log.debug("BEGIN archiving asset")
-        asset_path = f"{self.intake}/{cname}"
-        store_path = f"{self.managed}/{label_dir}/"
-        if not shutil.os.path.exists(store_path):
-            shutil.os.mkdir(store_path)
-        shutil.move(asset_path, f"{self.temp}/")
-        Archive.archive(f"{self.temp}/{cname}")
-        self.log.debug("Archive created successfully")
-        shutil.move(f"{self.temp}/{cname}.rar", store_path)
-        if not shutil.os.path.isfile(f"{store_path}/{cname}.rar"):
-            raise RuntimeWarning
-        self.log.debug("Archive moved to label directory")
-        shutil.rmtree(f"{self.temp}/{cname}")
-        self.log.debug("Original asset files removed")
-        return True 
-    '''
+ 

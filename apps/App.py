@@ -94,11 +94,17 @@ class SimpleApp:
         return 
 
   # Methods to be reimplemented by subclasses
-    def run_task(self, task: Dict) -> Dict:
+    def run_cycle(self, task: Dict = {}) -> List[Dict]:
         raise RuntimeError
+        tasks = []
         result = None
         task["result"] = self.encode_result(result)
-        return task
+        tasks.append(task)
+        return tasks
+
+    def encode_result(self, result: Any) -> Dict:
+        return {}
+
 
     def load_data_replicas(self) -> bool:
         raise RuntimeError

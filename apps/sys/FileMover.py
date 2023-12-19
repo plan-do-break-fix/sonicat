@@ -14,19 +14,23 @@ class FileMover(SimpleApp):
     def run_cycle(self, task={}):
         if not task:
             self.idle(0)
+            return []
         if not shutil.os.path.isdir(task["args"]["to_path"]):
             shutil.os.makedirs(task["args"]["to_path"])
         match task["action"]:
             case "move":
-                return self.move(task["args"]["from_path"], task["args"]["to_path"])
+                result = self.move(task["args"]["from_path"], task["args"]["to_path"])
             case "remove":
-                return self.remove(task["args"]["from_path"])
+                result = self.remove(task["args"]["from_path"])
             case "archive":
-                return self.archive(task["args"]["from_path"], task["args"]["to_path"])
+                result = self.archive(task["args"]["from_path"], task["args"]["to_path"])
             case "restore":
-                return self.restore(task["args"]["from_path"], task["args"]["to_path"])
-            case _:
-                pass
+                result = self.restore(task["args"]["from_path"], task["args"]["to_path"])
+        if result:
+            task["results"].append({"result": "success"})
+        else:
+            task["results"].append({"result": "failure"})
+        return [task,]
 
     def move(self, from_path, to_path) -> bool:
         result = shutil.move(from_path, to_path)
@@ -52,6 +56,7 @@ class FileMover(SimpleApp):
         shutil.copyfile(from_path, to_path)
         Archive.restore(to_path)
         self.remove(to_path)
+        return True
 
 
 

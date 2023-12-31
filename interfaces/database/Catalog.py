@@ -52,10 +52,13 @@ class ReadInterface(DatabaseInterface):
 
     def __init__(self, dbpath="") -> None:
         super().__init__(dbpath)
+        for statement in SCHEMA:
+            self.c.execute(statement)
+        self.db.commit()
 
   # Asset ID Methods
     def all_asset_ids(self) -> List[str]:
-        self.c.execute("SELECT id FROM asset;")
+        self.c.execute("SELECT id FROM asset ORDER BY id ASC;")
         return [_i[0] for _i in self.c.fetchall()]
 
     def asset_id(self, cname: str) -> str:
@@ -68,6 +71,10 @@ class ReadInterface(DatabaseInterface):
 
     def asset_id_from_file(self, file_id: str) -> str:
         self.c.execute("SELECT asset FROM file WHERE id = ?;", (file_id,))
+        return self.c.fetchone()[0]
+    
+    def highest_asset_id(self) -> str:
+        self.c.execute("SELECT id FROM asset ORDER BY id DESC LIMIT 1;")
         return self.c.fetchone()[0]
         
   # File ID Methods
